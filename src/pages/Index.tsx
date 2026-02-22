@@ -1,15 +1,20 @@
 import { motion } from "framer-motion";
-import { Radio } from "lucide-react";
+import { Radio, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import LiveFeedPanel from "@/components/dashboard/LiveFeedPanel";
 import ActionPanel from "@/components/dashboard/ActionPanel";
 import RoutePanel from "@/components/dashboard/RoutePanel";
 import StatsBar from "@/components/dashboard/StatsBar";
 import DensityPanel from "@/components/dashboard/DensityPanel";
 import NotificationsPanel from "@/components/dashboard/NotificationsPanel";
+import NotificationSubscription from "@/components/dashboard/NotificationSubscription";
 
 const Index = () => {
+  const { user, signOut } = useAuth();
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6 flex flex-col">
       {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -20 }}
@@ -30,10 +35,18 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <span className="w-2 h-2 rounded-full bg-traffic-green animate-pulse" />
-          <span className="text-muted-foreground">System Online</span>
-          <span className="text-primary ml-2">v2.4.1</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span className="w-2 h-2 rounded-full bg-traffic-green animate-pulse" />
+            <span className="text-muted-foreground">System Online</span>
+            <span className="text-primary ml-2">v2.4.1</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">{user?.email}</span>
+            <Button variant="ghost" size="icon" onClick={signOut} className="h-8 w-8">
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </motion.header>
 
@@ -48,7 +61,7 @@ const Index = () => {
       </motion.div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
         {/* Left: Live Feed */}
         <div className="lg:col-span-2">
           <LiveFeedPanel />
@@ -69,10 +82,20 @@ const Index = () => {
             <NotificationsPanel />
           </div>
         </div>
-        <div className="lg:hidden">
-          {/* On mobile, notifications show inline */}
+        <div className="flex flex-col gap-4">
+          <NotificationSubscription />
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-6 pt-4 border-t border-border text-center">
+        <p className="text-xs text-muted-foreground font-mono">
+          © {new Date().getFullYear()} GenAI-YOLO Traffic Intelligence Platform. All rights reserved.
+        </p>
+        <p className="text-[10px] text-muted-foreground/70 font-mono mt-1">
+          Admin: Sahil Sinha
+        </p>
+      </footer>
     </div>
   );
 };
