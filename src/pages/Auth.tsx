@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 
+const isFetchError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes("failed to fetch");
+};
+
+const clearAuthCache = () => {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("sb-") && key.endsWith("-auth-token"))
+    .forEach((key) => localStorage.removeItem(key));
+};
+
 const Auth = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
@@ -20,14 +31,24 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const signIn = async () => supabase.auth.signInWithPassword({
           email: form.email,
           password: form.password,
         });
-        if (error) throw error;
+
+        let signInResult;
+        try {
+          signInResult = await signIn();
+        } catch (error) {
+          if (!isFetchError(error)) throw error;
+          clearAuthCache();
+          signInResult = await signIn();
+        }
+
+        if (signInResult.error) throw signInResult.error;
         navigate("/");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const signUp = async () => supabase.auth.signUp({
           email: form.email,
           password: form.password,
           options: {
@@ -35,16 +56,29 @@ const Auth = () => {
             emailRedirectTo: window.location.origin,
           },
         });
-        if (error) throw error;
+
+        let signUpResult;
+        try {
+          signUpResult = await signUp();
+        } catch (error) {
+          if (!isFetchError(error)) throw error;
+          clearAuthCache();
+          signUpResult = await signUp();
+        }
+
+        if (signUpResult.error) throw signUpResult.error;
         toast({
           title: "Check your email",
           description: "We sent you a verification link to confirm your account.",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const isNetworkIssue = isFetchError(error);
       toast({
-        title: "Error",
-        description: error.message,
+        title: isNetworkIssue ? "Network issue" : "Error",
+        description: isNetworkIssue
+          ? "Could not reach authentication service. We cleared stale session data and retried once. If it still fails, disable VPN/ad-blocker and retry."
+          : (error instanceof Error ? error.message : "Something went wrong"),
         variant: "destructive",
       });
     } finally {
@@ -142,3 +176,4 @@ const Auth = () => {
 };
 
 export default Auth;
+

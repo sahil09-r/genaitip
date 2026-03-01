@@ -16,6 +16,17 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+const isFetchError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes("failed to fetch");
+};
+
+const clearAuthCache = () => {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("sb-") && key.endsWith("-auth-token"))
+    .forEach((key) => localStorage.removeItem(key));
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,15 +37,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    const loadSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+      } catch (error) {
+        if (isFetchError(error)) {
+          clearAuthCache();
+        }
+        setSession(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSession();
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
+    clearAuthCache();
     await supabase.auth.signOut();
   };
 
@@ -46,3 +69,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
