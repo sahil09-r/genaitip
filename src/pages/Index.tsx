@@ -9,6 +9,7 @@ import StatsBar from "@/components/dashboard/StatsBar";
 import DensityPanel from "@/components/dashboard/DensityPanel";
 import NotificationsPanel from "@/components/dashboard/NotificationsPanel";
 import NotificationSubscription from "@/components/dashboard/NotificationSubscription";
+import AIChatbot from "@/components/dashboard/AIChatbot";
 
 const Index = () => {
   const { user, signOut } = useAuth();
@@ -86,6 +87,8 @@ const Index = () => {
           <NotificationSubscription />
         </div>
       </div>
+
+      <AIChatbot />
 
       {/* Footer */}
       <footer className="mt-6 pt-4 border-t border-border text-center">
