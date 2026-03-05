@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { Camera, Zap, VideoOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDashboard } from "@/contexts/DashboardContext";
 
 const LiveFeedPanel = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fps, setFps] = useState(30);
-  const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const { cameraActive, setCameraActive } = useDashboard();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -91,10 +92,8 @@ const LiveFeedPanel = () => {
           </div>
         )}
 
-        {/* Scan line effect */}
         {cameraActive && <div className="absolute inset-0 scan-line pointer-events-none" />}
 
-        {/* Bottom overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/90 to-transparent p-3">
           <div className="flex justify-between items-center font-mono text-xs text-muted-foreground">
             <span>YOLOv8 Enhanced • GenAI Pipeline</span>

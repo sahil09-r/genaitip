@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Octagon, AlertTriangle, CircleCheck } from "lucide-react";
+import { Octagon, AlertTriangle, CircleCheck, VideoOff } from "lucide-react";
+import { useDashboard } from "@/contexts/DashboardContext";
 
 interface ActionState {
   light: "red" | "yellow" | "green";
@@ -10,12 +11,6 @@ interface ActionState {
   density: "Low" | "Medium" | "High";
 }
 
-const actions: ActionState[] = [
-  { light: "red", message: "STOP", detail: "High density ahead — Hold position", countdown: 18, density: "High" },
-  { light: "yellow", message: "PREPARE TO STOP", detail: "2 signals remaining on route", countdown: 4, density: "Medium" },
-  { light: "green", message: "PROCEED", detail: "Low density, clear route ahead", countdown: 0, density: "Low" },
-];
-
 const lightConfig = {
   red: { icon: Octagon, bg: "bg-traffic-red/15", border: "border-traffic-red/40", text: "text-traffic-red", glow: "shadow-[0_0_30px_hsl(var(--traffic-red)/0.3)]" },
   yellow: { icon: AlertTriangle, bg: "bg-traffic-yellow/15", border: "border-traffic-yellow/40", text: "text-traffic-yellow", glow: "shadow-[0_0_30px_hsl(var(--traffic-yellow)/0.3)]" },
@@ -23,24 +18,81 @@ const lightConfig = {
 };
 
 const ActionPanel = () => {
+  const { cameraActive, routeData } = useDashboard();
+  const isActive = cameraActive || !!routeData;
+
   const [current, setCurrent] = useState(0);
-  const [countdown, setCountdown] = useState(actions[0].countdown);
+  const [countdown, setCountdown] = useState(0);
+
+  // Generate actions based on route data
+  const actions: ActionState[] = routeData
+    ? [
+        {
+          light: "red",
+          message: "STOP",
+          detail: `${routeData.signalCount} signals on route — Next signal ahead`,
+          countdown: 18,
+          density: routeData.signalCount > 10 ? "High" : routeData.signalCount > 5 ? "Medium" : "Low",
+        },
+        {
+          light: "yellow",
+          message: "PREPARE TO STOP",
+          detail: `${routeData.signalCount - Math.floor(routeData.signalCount / 3)} signals remaining`,
+          countdown: 4,
+          density: "Medium",
+        },
+        {
+          light: "green",
+          message: "PROCEED",
+          detail: `Clear stretch ahead • ETA ${routeData.duration}`,
+          countdown: 0,
+          density: "Low",
+        },
+      ]
+    : [
+        { light: "red", message: "STOP", detail: "Signal detected — Hold position", countdown: 18, density: "High" },
+        { light: "yellow", message: "PREPARE TO STOP", detail: "Signal changing soon", countdown: 4, density: "Medium" },
+        { light: "green", message: "PROCEED", detail: "Clear road ahead", countdown: 0, density: "Low" },
+      ];
 
   useEffect(() => {
+    if (!isActive) return;
     const interval = setInterval(() => {
       setCurrent((c) => (c + 1) % actions.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isActive, actions.length]);
 
   useEffect(() => {
-    setCountdown(actions[current].countdown);
-    if (actions[current].countdown <= 0) return;
+    if (!isActive) return;
+    setCountdown(actions[current]?.countdown ?? 0);
+    if ((actions[current]?.countdown ?? 0) <= 0) return;
     const interval = setInterval(() => {
       setCountdown((c) => Math.max(0, c - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [current]);
+  }, [current, isActive]);
+
+  if (!isActive) {
+    return (
+      <div className="glass-panel p-4 flex flex-col h-full">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+          <VideoOff className="w-10 h-10" />
+          <p className="text-sm text-center">
+            Start the camera or enter a route to see live signal status
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 mt-4">
+          {(["red", "yellow", "green"] as const).map((light) => (
+            <div key={light} className="w-5 h-5 rounded-full bg-secondary" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const action = actions[current];
   const config = lightConfig[action.light];
@@ -49,7 +101,11 @@ const ActionPanel = () => {
   return (
     <div className="glass-panel p-4 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm font-semibold text-foreground">⚡ Current Action</span>
+        <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
+        <span className="ml-auto text-[10px] font-mono text-primary flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-traffic-green animate-pulse" />
+          {cameraActive ? "CAMERA" : "ROUTE"}
+        </span>
       </div>
 
       <AnimatePresence mode="wait">
@@ -72,7 +128,6 @@ const ActionPanel = () => {
           )}
           <p className="text-sm text-muted-foreground text-center">{action.detail}</p>
 
-          {/* Density badge */}
           <div className={`px-3 py-1 rounded-full border text-xs font-mono ${
             action.density === "High" ? "border-traffic-red/40 text-traffic-red" :
             action.density === "Medium" ? "border-traffic-yellow/40 text-traffic-yellow" :
@@ -83,7 +138,6 @@ const ActionPanel = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Traffic light indicator */}
       <div className="flex justify-center gap-3 mt-4">
         {(["red", "yellow", "green"] as const).map((light) => (
           <div
