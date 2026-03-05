@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Radio, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { DashboardProvider } from "@/contexts/DashboardContext";
 import LiveFeedPanel from "@/components/dashboard/LiveFeedPanel";
 import ActionPanel from "@/components/dashboard/ActionPanel";
 import RoutePanel from "@/components/dashboard/RoutePanel";
@@ -15,6 +16,7 @@ const Index = () => {
   const { user, signOut } = useAuth();
 
   return (
+    <DashboardProvider>
     <div className="min-h-screen bg-background p-4 md:p-6 flex flex-col">
       {/* Header */}
       <motion.header
@@ -100,6 +102,7 @@ const Index = () => {
         </p>
       </footer>
     </div>
+    </DashboardProvider>
   );
 };
 
