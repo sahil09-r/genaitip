@@ -6,17 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-
-const isFetchError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.toLowerCase().includes("failed to fetch");
-};
-
-const clearAuthCache = () => {
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith("sb-") && key.endsWith("-auth-token"))
-    .forEach((key) => localStorage.removeItem(key));
-};
+import { clearAuthCache, clearCorruptedAuthCache, isFetchError } from "@/lib/auth";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -27,6 +17,7 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearCorruptedAuthCache();
     setLoading(true);
 
     try {
@@ -42,6 +33,7 @@ const Auth = () => {
         } catch (error) {
           if (!isFetchError(error)) throw error;
           clearAuthCache();
+          await supabase.auth.signOut({ scope: "local" });
           await new Promise((r) => setTimeout(r, 1000));
           signInResult = await signIn();
         }
@@ -64,6 +56,7 @@ const Auth = () => {
         } catch (error) {
           if (!isFetchError(error)) throw error;
           clearAuthCache();
+          await supabase.auth.signOut({ scope: "local" });
           await new Promise((r) => setTimeout(r, 1000));
           signUpResult = await signUp();
         }
