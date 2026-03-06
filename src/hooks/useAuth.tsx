@@ -1,6 +1,7 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, type ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { clearAuthCache, clearCorruptedAuthCache, isFetchError } from "@/lib/auth";
 
 interface AuthContextType {
   session: Session | null;
@@ -9,41 +10,32 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  session: null,
-  user: null,
-  loading: true,
-  signOut: async () => {},
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const isFetchError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  return message.toLowerCase().includes("failed to fetch");
-};
-
-const clearAuthCache = () => {
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith("sb-") && key.endsWith("-auth-token"))
-    .forEach((key) => localStorage.removeItem(key));
-};
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    clearCorruptedAuthCache();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
       setLoading(false);
     });
 
     const loadSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
+        const {
+          data: { session: currentSession },
+        } = await supabase.auth.getSession();
+        setSession(currentSession);
       } catch (error) {
         if (isFetchError(error)) {
           clearAuthCache();
+          await supabase.auth.signOut({ scope: "local" });
         }
         setSession(null);
       } finally {
@@ -58,7 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     clearAuthCache();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
   };
 
   return (
@@ -68,5 +60,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
-
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
