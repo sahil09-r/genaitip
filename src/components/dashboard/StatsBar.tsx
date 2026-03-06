@@ -15,12 +15,11 @@ const StatsBar = () => {
   const stats = [
     { icon: Eye, label: "Detection", value: `${precision.toFixed(1)}%`, sub: "mAP Score" },
     { icon: Gauge, label: "Processing", value: "30 fps", sub: "Real-time" },
-    { icon: Shield, label: "Weather", value: "+12.4%", sub: "GenAI Boost" },
     { icon: Wifi, label: "Latency", value: "18ms", sub: "Edge Device" },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="grid grid-cols-3 gap-3">
       {stats.map((stat, i) => (
         <motion.div
           key={stat.label}
