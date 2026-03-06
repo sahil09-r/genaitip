@@ -2,3 +2,12 @@ project_id = "bdriawoyrvnqzhvjcbah"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
+
+[functions.telnyx-webhook]
+verify_jwt = false
+
+[functions.telnyx-webhook-failure]
+verify_jwt = false

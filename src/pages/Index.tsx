@@ -7,6 +7,7 @@ import LiveFeedPanel from "@/components/dashboard/LiveFeedPanel";
 import ActionPanel from "@/components/dashboard/ActionPanel";
 import RoutePanel from "@/components/dashboard/RoutePanel";
 import StatsBar from "@/components/dashboard/StatsBar";
+import WeatherPanel from "@/components/dashboard/WeatherPanel";
 import DensityPanel from "@/components/dashboard/DensityPanel";
 import NotificationsPanel from "@/components/dashboard/NotificationsPanel";
 import NotificationSubscription from "@/components/dashboard/NotificationSubscription";
@@ -53,14 +54,19 @@ const Index = () => {
         </div>
       </motion.header>
 
-      {/* Stats */}
+      {/* Stats + Weather */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="mb-4"
+        className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3"
       >
-        <StatsBar />
+        <div className="md:col-span-3">
+          <StatsBar />
+        </div>
+        <div>
+          <WeatherPanel />
+        </div>
       </motion.div>
 
       {/* Main Grid */}
