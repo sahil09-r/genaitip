@@ -42,6 +42,7 @@ const Auth = () => {
         } catch (error) {
           if (!isFetchError(error)) throw error;
           clearAuthCache();
+          await new Promise((r) => setTimeout(r, 1000));
           signInResult = await signIn();
         }
 
@@ -63,6 +64,7 @@ const Auth = () => {
         } catch (error) {
           if (!isFetchError(error)) throw error;
           clearAuthCache();
+          await new Promise((r) => setTimeout(r, 1000));
           signUpResult = await signUp();
         }
 
