@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.telnyx-webhook-failure]
 verify_jwt = false
+
+[functions.detect-frame]
+verify_jwt = false
