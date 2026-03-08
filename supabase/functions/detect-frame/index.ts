@@ -58,113 +58,124 @@ serve(async (req) => {
       userPrompt += ` Route context: Currently at signal ${routeContext.currentSignal} of ${routeContext.totalSignals} total signals on route.`;
     }
 
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
+    const requestBody = {
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userPrompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: image.startsWith("data:")
+                  ? image
+                  : `data:image/jpeg;base64,${image}`,
+              },
+            },
+          ],
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "report_detections",
+            description:
+              "Report all detected traffic elements from the camera frame",
+            parameters: {
+              type: "object",
+              properties: {
+                detections: {
+                  type: "array",
+                  description: "All detected signs, lights, objects",
+                  items: {
+                    type: "object",
+                    properties: {
+                      label: {
+                        type: "string",
+                        description:
+                          "Name of detected object e.g. 'Stop Sign', 'Speed Limit 40', 'Traffic Light Red'",
+                      },
+                      confidence: {
+                        type: "number",
+                        description: "Confidence 0-1",
+                      },
+                      bbox: {
+                        type: "object",
+                        description:
+                          "Normalized bounding box (0-1 range)",
+                        properties: {
+                          x: { type: "number" },
+                          y: { type: "number" },
+                          w: { type: "number" },
+                          h: { type: "number" },
+                        },
+                        required: ["x", "y", "w", "h"],
+                      },
+                    },
+                    required: ["label", "confidence", "bbox"],
+                  },
+                },
+                lightState: {
+                  type: "string",
+                  enum: ["red", "yellow", "green"],
+                  description:
+                    "Primary traffic light state if visible, omit if none",
+                },
+                density: {
+                  type: "string",
+                  enum: ["Low", "Medium", "High"],
+                  description: "Estimated traffic/crowd density",
+                },
+                action: {
+                  type: "string",
+                  description:
+                    "Recommended action e.g. 'STOP', 'PROCEED', 'SLOW DOWN'",
+                },
+                countdown: {
+                  type: "number",
+                  description:
+                    "Estimated wait time in seconds if applicable, 0 otherwise",
+                },
+              },
+              required: [
+                "detections",
+                "density",
+                "action",
+                "countdown",
+              ],
+            },
+          },
+        },
+      ],
+      tool_choice: {
+        type: "function",
+        function: { name: "report_detections" },
+      },
+    };
+
+    let response: Response | null = null;
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: userPrompt },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: image.startsWith("data:")
-                      ? image
-                      : `data:image/jpeg;base64,${image}`,
-                  },
-                },
-              ],
-            },
-          ],
-          tools: [
-            {
-              type: "function",
-              function: {
-                name: "report_detections",
-                description:
-                  "Report all detected traffic elements from the camera frame",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    detections: {
-                      type: "array",
-                      description: "All detected signs, lights, objects",
-                      items: {
-                        type: "object",
-                        properties: {
-                          label: {
-                            type: "string",
-                            description:
-                              "Name of detected object e.g. 'Stop Sign', 'Speed Limit 40', 'Traffic Light Red'",
-                          },
-                          confidence: {
-                            type: "number",
-                            description: "Confidence 0-1",
-                          },
-                          bbox: {
-                            type: "object",
-                            description:
-                              "Normalized bounding box (0-1 range)",
-                            properties: {
-                              x: { type: "number" },
-                              y: { type: "number" },
-                              w: { type: "number" },
-                              h: { type: "number" },
-                            },
-                            required: ["x", "y", "w", "h"],
-                          },
-                        },
-                        required: ["label", "confidence", "bbox"],
-                      },
-                    },
-                    lightState: {
-                      type: "string",
-                      enum: ["red", "yellow", "green"],
-                      description:
-                        "Primary traffic light state if visible, omit if none",
-                    },
-                    density: {
-                      type: "string",
-                      enum: ["Low", "Medium", "High"],
-                      description: "Estimated traffic/crowd density",
-                    },
-                    action: {
-                      type: "string",
-                      description:
-                        "Recommended action e.g. 'STOP', 'PROCEED', 'SLOW DOWN'",
-                    },
-                    countdown: {
-                      type: "number",
-                      description:
-                        "Estimated wait time in seconds if applicable, 0 otherwise",
-                    },
-                  },
-                  required: [
-                    "detections",
-                    "density",
-                    "action",
-                    "countdown",
-                  ],
-                },
-              },
-            },
-          ],
-          tool_choice: {
-            type: "function",
-            function: { name: "report_detections" },
-          },
-        }),
-      }
-    );
+        body: JSON.stringify(requestBody),
+      });
+
+      if (response.status !== 429 || attempt === maxAttempts) break;
+
+      const waitMs = 1200 * attempt;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+
+    if (!response) throw new Error("Detection response missing");
 
     if (!response.ok) {
       if (response.status === 429) {
