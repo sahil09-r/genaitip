@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Radio, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import { Radio, Mail, Lock, User, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
