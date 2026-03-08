@@ -223,7 +223,7 @@ const Settings = () => {
             <Card className="glass-panel border-border">
               <CardHeader>
                 <CardTitle className="text-lg">Emergency Contacts</CardTitle>
-                <CardDescription>Add contacts who will receive your alert message via SMS</CardDescription>
+                <CardDescription>Add contacts who will receive your alert message via email</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {/* Add new contact */}
