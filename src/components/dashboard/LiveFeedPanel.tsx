@@ -5,7 +5,7 @@ import { useDashboard } from "@/contexts/DashboardContext";
 import type { Detection } from "@/contexts/DashboardContext";
 
 const DETECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-frame`;
-const FRAME_INTERVAL = 3000; // 3 seconds
+const FRAME_INTERVAL = 5000; // 5 seconds to avoid rate limits
 
 const LiveFeedPanel = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
