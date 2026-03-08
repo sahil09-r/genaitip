@@ -85,20 +85,20 @@ const Settings = () => {
   };
 
   const addContact = async () => {
-    if (!newName.trim() || !newPhone.trim()) {
-      toast({ title: "Error", description: "Name and phone are required.", variant: "destructive" });
+    if (!newName.trim() || !newEmail.trim()) {
+      toast({ title: "Error", description: "Name and email are required.", variant: "destructive" });
       return;
     }
     setAddingContact(true);
     const { error } = await supabase
       .from("emergency_contacts")
-      .insert({ user_id: user!.id, name: newName.trim(), phone: newPhone.trim() });
+      .insert({ user_id: user!.id, name: newName.trim(), phone: newEmail.trim(), email: newEmail.trim() });
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setNewName("");
-      setNewPhone("");
+      setNewEmail("");
       loadContacts();
       toast({ title: "Added", description: "Emergency contact added." });
     }
