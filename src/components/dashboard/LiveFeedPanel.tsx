@@ -15,6 +15,7 @@ const LiveFeedPanel = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const detectingRef = useRef(false);
   const {
     cameraActive, setCameraActive,
     routeData,
