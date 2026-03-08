@@ -14,7 +14,7 @@ const ImageUploadPanel = () => {
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addNotification } = useDashboard();
+  const { addNotification, setDetectionResult, setIsDetecting } = useDashboard();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -97,8 +97,21 @@ const ImageUploadPanel = () => {
       const result: DetectionResult = await resp.json();
       setLocalResult(result);
 
+      // Sync to ActionPanel so Current Signal tab works with the timer
+      setDetectionResult(result);
+
       // Draw bounding boxes
       setTimeout(() => drawOverlay(result), 100);
+
+      // Extract any numbers from detections (countdown timers, speed limits, etc.)
+      const detectedNumbers: string[] = [];
+      result.detections.forEach((det) => {
+        const nums = det.label.match(/\d+/g);
+        if (nums) detectedNumbers.push(...nums);
+      });
+      if (result.countdown > 0) {
+        detectedNumbers.push(`${result.countdown}s timer`);
+      }
 
       // Build summary notification
       const parts: string[] = [];
@@ -109,10 +122,13 @@ const ImageUploadPanel = () => {
         parts.push(`Signal: ${result.lightState.toUpperCase()}`);
       }
       parts.push(`Density: ${result.density}`);
+      if (detectedNumbers.length > 0) {
+        parts.push(`Numbers: ${detectedNumbers.join(", ")}`);
+      }
 
       addNotification({
         text: `Image analysis: ${parts.join(" • ")}`,
-        type: result.lightState === "red" ? "alert" : "info",
+        type: result.lightState === "red" ? "alert" : result.lightState === "yellow" ? "warning" : "info",
       });
     } catch (err) {
       console.error("Detection fetch error:", err);
@@ -242,6 +258,29 @@ const ImageUploadPanel = () => {
                   {localResult.density}
                 </span>
               </div>
+
+              {/* Countdown */}
+              {localResult.countdown > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Timer Detected</span>
+                  <span className="text-primary font-bold">{localResult.countdown}s</span>
+                </div>
+              )}
+
+              {/* Detected Numbers */}
+              {(() => {
+                const nums: string[] = [];
+                localResult.detections.forEach((det) => {
+                  const m = det.label.match(/\d+/g);
+                  if (m) nums.push(...m);
+                });
+                return nums.length > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Numbers Found</span>
+                    <span className="text-primary font-bold">{nums.join(", ")}</span>
+                  </div>
+                ) : null;
+              })()}
 
               {/* Action */}
               {localResult.action && (

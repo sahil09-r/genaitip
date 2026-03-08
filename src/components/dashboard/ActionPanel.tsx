@@ -78,16 +78,50 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
 }
 
 const ActionPanel = () => {
-  const { cameraActive, routeData, detectionResult } = useDashboard();
-  const isActive = cameraActive || !!routeData;
-  const useRealDetection = cameraActive && detectionResult && detectionResult.lightState;
+  const { cameraActive, routeData, detectionResult, setDetectionResult } = useDashboard();
+  const isActive = cameraActive || !!routeData || !!detectionResult;
+  const useRealDetection = (cameraActive || !!detectionResult) && detectionResult && detectionResult.lightState;
 
   const [current, setCurrent] = useState(0);
   const [countdown, setCountdown] = useState(0);
+  const [realCountdown, setRealCountdown] = useState(0);
   const [nearestSignal, setNearestSignal] = useState<NearestSignal | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const lastSearchCoords = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Real detection countdown: tick down and transition signal when it hits 0
+  useEffect(() => {
+    if (!useRealDetection || !detectionResult) return;
+    setRealCountdown(detectionResult.countdown || 0);
+  }, [detectionResult, useRealDetection]);
+
+  useEffect(() => {
+    if (!useRealDetection || realCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setRealCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          // Transition signal when timer ends
+          const nextLight = detectionResult!.lightState === "red" ? "green"
+            : detectionResult!.lightState === "green" ? "yellow"
+            : "red";
+          const nextAction = nextLight === "green" ? "PROCEED"
+            : nextLight === "yellow" ? "PREPARE TO STOP"
+            : "STOP";
+          setDetectionResult({
+            ...detectionResult!,
+            lightState: nextLight,
+            action: nextAction,
+            countdown: nextLight === "red" ? 30 : nextLight === "yellow" ? 5 : 0,
+          });
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [realCountdown, useRealDetection]);
 
   // Get user location
   useEffect(() => {
@@ -243,7 +277,7 @@ const ActionPanel = () => {
         <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
         <span className="ml-auto text-[10px] font-mono text-primary flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-traffic-green animate-pulse" />
-          {useRealDetection ? "AI DETECTION" : cameraActive ? "CAMERA" : "ROUTE"}
+          {useRealDetection ? "AI DETECTION" : cameraActive ? "CAMERA" : detectionResult ? "IMAGE" : "ROUTE"}
         </span>
       </div>
 
@@ -262,9 +296,9 @@ const ActionPanel = () => {
           <h2 className={`text-3xl font-bold font-mono tracking-wider ${config.text}`}>
             {action.message}
           </h2>
-          {action.countdown > 0 && (
+          {(action.countdown > 0 || (useRealDetection && realCountdown > 0)) && (
             <span className={`text-5xl font-mono font-bold ${config.text} glow-text-cyan`}>
-              {useRealDetection ? action.countdown : countdown}s
+              {useRealDetection ? realCountdown : countdown}s
             </span>
           )}
           <p className="text-sm text-muted-foreground text-center">{action.detail}</p>
