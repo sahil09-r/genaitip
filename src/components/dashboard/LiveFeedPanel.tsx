@@ -163,20 +163,19 @@ const LiveFeedPanel = () => {
   // Start frame capture interval
   useEffect(() => {
     if (cameraActive) {
-      // Wait a moment for the video to start
+      currentIntervalRef.current = BASE_INTERVAL;
       const timeout = setTimeout(() => {
-        captureAndDetect();
-        intervalRef.current = setInterval(captureAndDetect, FRAME_INTERVAL);
-      }, 1000);
+        captureAndDetectRef.current();
+      }, 2000);
       return () => {
         clearTimeout(timeout);
-        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (intervalRef.current) clearTimeout(intervalRef.current);
       };
     } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) clearTimeout(intervalRef.current);
       setDetectionResult(null);
     }
-  }, [cameraActive, captureAndDetect, setDetectionResult]);
+  }, [cameraActive, setDetectionResult]);
 
   const startCamera = async () => {
     try {
