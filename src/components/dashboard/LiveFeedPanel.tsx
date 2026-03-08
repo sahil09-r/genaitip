@@ -5,7 +5,7 @@ import { useDashboard } from "@/contexts/DashboardContext";
 import type { Detection } from "@/contexts/DashboardContext";
 
 const DETECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-frame`;
-const FRAME_INTERVAL = 3000; // 3 seconds
+const FRAME_INTERVAL = 5000; // 5 seconds to avoid rate limits
 
 const LiveFeedPanel = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -15,6 +15,7 @@ const LiveFeedPanel = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const detectingRef = useRef(false);
   const {
     cameraActive, setCameraActive,
     routeData,
@@ -32,6 +33,7 @@ const LiveFeedPanel = () => {
 
   const captureAndDetect = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
+    if (detectingRef.current) return; // skip if already in-flight
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -43,6 +45,7 @@ const LiveFeedPanel = () => {
 
     const base64 = canvas.toDataURL("image/jpeg", 0.7);
 
+    detectingRef.current = true;
     setIsDetecting(true);
     try {
       const routeContext = routeData
@@ -81,6 +84,7 @@ const LiveFeedPanel = () => {
     } catch (err) {
       console.error("Detection fetch error:", err);
     } finally {
+      detectingRef.current = false;
       setIsDetecting(false);
     }
   }, [routeData, setDetectionResult, setIsDetecting, addNotification]);
