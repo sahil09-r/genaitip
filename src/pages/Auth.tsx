@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { clearAuthCache, clearCorruptedAuthCache, isFetchError } from "@/lib/auth";
+import { useTheme } from "@/hooks/useTheme";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
