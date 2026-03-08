@@ -116,25 +116,22 @@ const Settings = () => {
     setSendingTo(contact.id);
     try {
       const senderName = fullName || user?.email || "User";
-      const message = alertMessage
-        ? `${alertMessage}`
-        : `Emergency alert from ${senderName}!`;
+      const message = alertMessage || `Emergency alert from ${senderName}!`;
 
-      const htmlBody = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #dc2626;">🚨 Emergency Alert</h2>
-          <p style="font-size: 16px; line-height: 1.6;">${message}</p>
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-          <p style="color: #6b7280; font-size: 14px;">— Sent by <strong>${senderName}</strong> via GenAI-YOLO Traffic Intelligence Platform</p>
-        </div>
-      `;
+      const result = await emailjs.send(
+        "service_gce8cg6",
+        "template_yu1x3e9",
+        {
+          to_email: contactEmail,
+          contact_name: contact.name,
+          sender_name: senderName,
+          sender_email: user?.email || "",
+          message: message,
+        },
+        "1bHGPrVM0tl7vQ2pU"
+      );
 
-      const { data, error } = await supabase.functions.invoke("send-email", {
-        body: { to: contactEmail, subject: `🚨 Emergency Alert from ${senderName}`, html: htmlBody, text: message },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (result.status !== 200) throw new Error("Email send failed");
 
       toast({
         title: "Alert Sent!",
