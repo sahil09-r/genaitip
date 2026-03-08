@@ -99,6 +99,7 @@ const Index = () => {
         </div>
         <div className="flex flex-col gap-4">
           <NotificationSubscription />
+          <ImageUploadPanel />
         </div>
       </div>
 
