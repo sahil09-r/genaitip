@@ -33,7 +33,7 @@ const Settings = () => {
   // Emergency contacts state
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [newName, setNewName] = useState("");
-  const [newPhone, setNewPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [addingContact, setAddingContact] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
 
