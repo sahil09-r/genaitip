@@ -224,25 +224,27 @@ const ActionPanel = () => {
   }
 
   // Build action from real AI detection results only
-  const action: ActionState = hasLightState
-    ? {
-        light: detectionResult!.lightState as "red" | "yellow" | "green",
-        message: detectionResult!.action || "SCANNING",
-        detail: detectionResult!.detections.length > 0
-          ? `Detected: ${detectionResult!.detections.map((d) => d.label).join(", ")}`
-          : "Analyzing traffic...",
-        countdown: realCountdown,
-        density: detectionResult!.density || "Low",
-      }
-    : {
-        light: (detectionResult!.density === "High" ? "red" : detectionResult!.density === "Medium" ? "yellow" : "green") as "red" | "yellow" | "green",
-        message: detectionResult!.action || "ANALYZED",
-        detail: detectionResult!.detections.length > 0
-          ? `Detected: ${detectionResult!.detections.map((d) => d.label).join(", ")}`
-          : "No signal found — density analysis only",
-        countdown: 0,
-        density: detectionResult!.density || "Low",
-      };
+  const action: ActionState = detectionResult
+    ? hasLightState
+      ? {
+          light: detectionResult.lightState as "red" | "yellow" | "green",
+          message: detectionResult.action || "SCANNING",
+          detail: detectionResult.detections.length > 0
+            ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
+            : "Analyzing traffic...",
+          countdown: realCountdown,
+          density: detectionResult.density || "Low",
+        }
+      : {
+          light: (detectionResult.density === "High" ? "red" : detectionResult.density === "Medium" ? "yellow" : "green") as "red" | "yellow" | "green",
+          message: detectionResult.action || "ANALYZED",
+          detail: detectionResult.detections.length > 0
+            ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
+            : "No signal found — density analysis only",
+          countdown: 0,
+          density: detectionResult.density || "Low",
+        }
+    : { light: "green" as const, message: "SCANNING", detail: "Waiting for detection...", countdown: 0, density: "Low" as const };
 
   const config = lightConfig[action.light];
   const Icon = config.icon;
