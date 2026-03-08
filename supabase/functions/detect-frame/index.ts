@@ -180,8 +180,16 @@ serve(async (req) => {
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please wait." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            detections: [],
+            lightState: null,
+            density: "Low",
+            action: "SCANNING",
+            countdown: 0,
+            rateLimited: true,
+            message: "Rate limit exceeded. Backing off.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
