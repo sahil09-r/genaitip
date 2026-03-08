@@ -84,10 +84,44 @@ const ActionPanel = () => {
 
   const [current, setCurrent] = useState(0);
   const [countdown, setCountdown] = useState(0);
+  const [realCountdown, setRealCountdown] = useState(0);
   const [nearestSignal, setNearestSignal] = useState<NearestSignal | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const lastSearchCoords = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Real detection countdown: tick down and transition signal when it hits 0
+  useEffect(() => {
+    if (!useRealDetection || !detectionResult) return;
+    setRealCountdown(detectionResult.countdown || 0);
+  }, [detectionResult, useRealDetection]);
+
+  useEffect(() => {
+    if (!useRealDetection || realCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setRealCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          // Transition signal when timer ends
+          const nextLight = detectionResult!.lightState === "red" ? "green"
+            : detectionResult!.lightState === "green" ? "yellow"
+            : "red";
+          const nextAction = nextLight === "green" ? "PROCEED"
+            : nextLight === "yellow" ? "PREPARE TO STOP"
+            : "STOP";
+          setDetectionResult({
+            ...detectionResult!,
+            lightState: nextLight,
+            action: nextAction,
+            countdown: nextLight === "red" ? 30 : nextLight === "yellow" ? 5 : 0,
+          });
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [realCountdown, useRealDetection]);
 
   // Get user location
   useEffect(() => {
