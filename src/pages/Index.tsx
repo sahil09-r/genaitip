@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Radio, LogOut } from "lucide-react";
+import { Radio, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import LiveFeedPanel from "@/components/dashboard/LiveFeedPanel";
