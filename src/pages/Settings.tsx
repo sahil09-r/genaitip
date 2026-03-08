@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, Phone, Mail, Save, ShieldAlert, Plus, Trash2, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, User, Mail, Save, ShieldAlert, Plus, Trash2, Send, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
