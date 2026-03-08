@@ -33,6 +33,7 @@ const LiveFeedPanel = () => {
 
   const captureAndDetect = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
+    if (detectingRef.current) return; // skip if already in-flight
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
