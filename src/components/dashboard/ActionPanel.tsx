@@ -241,7 +241,7 @@ const ActionPanel = () => {
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <VideoOff className="w-10 h-10" />
           <p className="text-sm text-center">
-            Start the camera or enter a route to see live signal status
+            Start the camera, enter a route, or upload an image to see live signal status
           </p>
         </div>
         <div className="flex justify-center gap-3 mt-4">
