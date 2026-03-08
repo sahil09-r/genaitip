@@ -71,10 +71,9 @@ const LiveFeedPanel = () => {
       });
 
       if (resp.status === 429) {
-        // Rate limited — back off
+        // Rate limited — back off (scheduleNext runs in finally)
         currentIntervalRef.current = Math.min(currentIntervalRef.current * 2, MAX_INTERVAL);
         console.warn(`Rate limited. Backing off to ${currentIntervalRef.current / 1000}s`);
-        scheduleNext();
         return;
       }
 
@@ -83,7 +82,6 @@ const LiveFeedPanel = () => {
 
       if (!resp.ok) {
         console.error("Detection error:", resp.status);
-        scheduleNext();
         return;
       }
 
