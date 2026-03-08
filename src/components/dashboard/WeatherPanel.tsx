@@ -87,7 +87,7 @@ const WeatherPanel = () => {
         setError(err.message || "Location access denied");
         setLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 
     // Refresh every 5 minutes
