@@ -78,9 +78,9 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
 }
 
 const ActionPanel = () => {
-  const { cameraActive, routeData, detectionResult } = useDashboard();
-  const isActive = cameraActive || !!routeData;
-  const useRealDetection = cameraActive && detectionResult && detectionResult.lightState;
+  const { cameraActive, routeData, detectionResult, setDetectionResult } = useDashboard();
+  const isActive = cameraActive || !!routeData || !!detectionResult;
+  const useRealDetection = (cameraActive || !!detectionResult) && detectionResult && detectionResult.lightState;
 
   const [current, setCurrent] = useState(0);
   const [countdown, setCountdown] = useState(0);
