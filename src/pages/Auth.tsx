@@ -34,15 +34,16 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: "", password: "", fullName: "" });
 
+  const VERCEL_ORIGIN = "https://genai-yolo.vercel.app";
   const isLovableDomain = window.location.hostname.endsWith(".lovable.app");
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setOauthLoading(provider);
     try {
       if (isLovableDomain) {
-        // Use managed Lovable OAuth on lovable.app domains
+        // Use managed Lovable OAuth, redirect to Vercel domain
         const { error } = await lovable.auth.signInWithOAuth(provider, {
-          redirect_uri: window.location.origin,
+          redirect_uri: VERCEL_ORIGIN,
         });
         if (error) throw error;
       } else {
@@ -50,7 +51,7 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
-            redirectTo: window.location.origin,
+            redirectTo: VERCEL_ORIGIN,
           },
         });
         if (error) throw error;
