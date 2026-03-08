@@ -231,7 +231,7 @@ const Settings = () => {
                   <p className="text-sm font-medium text-foreground">Add a contact</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" className="bg-secondary border-border" />
-                    <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+1234567890" className="bg-secondary border-border" />
+                    <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="email@example.com" type="email" className="bg-secondary border-border" />
                   </div>
                   <Button onClick={addContact} disabled={addingContact} size="sm" className="gap-2 w-fit">
                     {addingContact ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
