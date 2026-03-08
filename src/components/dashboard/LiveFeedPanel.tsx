@@ -5,7 +5,8 @@ import { useDashboard } from "@/contexts/DashboardContext";
 import type { Detection } from "@/contexts/DashboardContext";
 
 const DETECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-frame`;
-const FRAME_INTERVAL = 5000; // 5 seconds to avoid rate limits
+const BASE_INTERVAL = 15000; // 15 seconds between detections
+const MAX_INTERVAL = 60000; // max backoff 60s
 
 const LiveFeedPanel = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -14,8 +15,9 @@ const LiveFeedPanel = () => {
   const [fps, setFps] = useState(30);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detectingRef = useRef(false);
+  const currentIntervalRef = useRef(BASE_INTERVAL);
   const {
     cameraActive, setCameraActive,
     routeData,
@@ -31,9 +33,16 @@ const LiveFeedPanel = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const scheduleNext = useCallback(() => {
+    if (intervalRef.current) clearTimeout(intervalRef.current);
+    intervalRef.current = setTimeout(() => {
+      captureAndDetectRef.current();
+    }, currentIntervalRef.current);
+  }, []);
+
   const captureAndDetect = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
-    if (detectingRef.current) return; // skip if already in-flight
+    if (detectingRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -61,15 +70,26 @@ const LiveFeedPanel = () => {
         body: JSON.stringify({ image: base64, routeContext }),
       });
 
+      if (resp.status === 429) {
+        // Rate limited — back off
+        currentIntervalRef.current = Math.min(currentIntervalRef.current * 2, MAX_INTERVAL);
+        console.warn(`Rate limited. Backing off to ${currentIntervalRef.current / 1000}s`);
+        scheduleNext();
+        return;
+      }
+
+      // Success — reset interval to base
+      currentIntervalRef.current = BASE_INTERVAL;
+
       if (!resp.ok) {
         console.error("Detection error:", resp.status);
+        scheduleNext();
         return;
       }
 
       const result = await resp.json();
       setDetectionResult(result);
 
-      // Trigger notification on red light + high density (throttled)
       if (
         result.lightState === "red" &&
         result.density === "High" &&
@@ -86,8 +106,13 @@ const LiveFeedPanel = () => {
     } finally {
       detectingRef.current = false;
       setIsDetecting(false);
+      scheduleNext();
     }
-  }, [routeData, setDetectionResult, setIsDetecting, addNotification]);
+  }, [routeData, setDetectionResult, setIsDetecting, addNotification, scheduleNext]);
+
+  // Keep a stable ref to the latest captureAndDetect
+  const captureAndDetectRef = useRef(captureAndDetect);
+  useEffect(() => { captureAndDetectRef.current = captureAndDetect; }, [captureAndDetect]);
 
   // Draw bounding boxes
   useEffect(() => {
@@ -138,20 +163,19 @@ const LiveFeedPanel = () => {
   // Start frame capture interval
   useEffect(() => {
     if (cameraActive) {
-      // Wait a moment for the video to start
+      currentIntervalRef.current = BASE_INTERVAL;
       const timeout = setTimeout(() => {
-        captureAndDetect();
-        intervalRef.current = setInterval(captureAndDetect, FRAME_INTERVAL);
-      }, 1000);
+        captureAndDetectRef.current();
+      }, 2000);
       return () => {
         clearTimeout(timeout);
-        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (intervalRef.current) clearTimeout(intervalRef.current);
       };
     } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) clearTimeout(intervalRef.current);
       setDetectionResult(null);
     }
-  }, [cameraActive, captureAndDetect, setDetectionResult]);
+  }, [cameraActive, setDetectionResult]);
 
   const startCamera = async () => {
     try {
