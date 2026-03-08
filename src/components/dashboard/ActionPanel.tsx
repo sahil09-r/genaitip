@@ -263,6 +263,16 @@ const ActionPanel = () => {
         countdown: detectionResult.countdown || 0,
         density: detectionResult.density || "Low",
       }
+    : detectionResult && !detectionResult.lightState
+    ? {
+        light: detectionResult.density === "High" ? "red" as const : detectionResult.density === "Medium" ? "yellow" as const : "green" as const,
+        message: detectionResult.action || "ANALYZED",
+        detail: detectionResult.detections.length > 0
+          ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
+          : "No signal found — density analysis only",
+        countdown: 0,
+        density: detectionResult.density || "Low",
+      }
     : simActions[current];
 
   const config = lightConfig[action.light];
