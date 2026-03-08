@@ -34,13 +34,27 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: "", password: "", fullName: "" });
 
+  const isLovableDomain = window.location.hostname.endsWith(".lovable.app");
+
   const handleOAuth = async (provider: "google" | "apple") => {
     setOauthLoading(provider);
     try {
-      const { error } = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
-      });
-      if (error) throw error;
+      if (isLovableDomain) {
+        // Use managed Lovable OAuth on lovable.app domains
+        const { error } = await lovable.auth.signInWithOAuth(provider, {
+          redirect_uri: window.location.origin,
+        });
+        if (error) throw error;
+      } else {
+        // Use standard Supabase OAuth on custom/Vercel domains
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+        if (error) throw error;
+      }
     } catch (error: unknown) {
       toast({
         title: "Error",
