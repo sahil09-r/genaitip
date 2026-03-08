@@ -39,8 +39,7 @@ function formatDistance(meters: number): string {
 }
 
 async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSignal | null> {
-  // Use Overpass API (OpenStreetMap) to find nearby traffic signals
-  const radius = 2000; // 2km
+  const radius = 2000;
   const query = `
     [out:json][timeout:10];
     (
@@ -48,7 +47,6 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
     );
     out body;
   `;
-
   try {
     const res = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST",
@@ -56,12 +54,9 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
     const data = await res.json();
-
     if (!data.elements || data.elements.length === 0) return null;
-
     let closest: NearestSignal | null = null;
     let minDist = Infinity;
-
     for (const el of data.elements) {
       const dist = haversineDistance(lat, lng, el.lat, el.lon);
       if (dist < minDist) {
@@ -70,7 +65,6 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
         closest = { name, distance: dist, lat: el.lat, lng: el.lon };
       }
     }
-
     return closest;
   } catch {
     return null;
@@ -78,42 +72,42 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
 }
 
 const ActionPanel = () => {
-  const { cameraActive, routeData, detectionResult, setDetectionResult } = useDashboard();
-  const isActive = cameraActive || !!routeData || !!detectionResult;
+  const { cameraActive, detectionResult, setDetectionResult } = useDashboard();
+  const isActive = cameraActive || !!detectionResult;
   const useRealDetection = !!detectionResult && !!detectionResult.lightState;
 
-  const [current, setCurrent] = useState(0);
-  const [countdown, setCountdown] = useState(0);
   const [realCountdown, setRealCountdown] = useState(0);
   const [nearestSignal, setNearestSignal] = useState<NearestSignal | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const lastSearchCoords = useRef<{ lat: number; lng: number } | null>(null);
 
-  // Real detection countdown: tick down and transition signal when it hits 0
+  // Sync countdown from detection result
   useEffect(() => {
     if (!useRealDetection || !detectionResult) return;
     setRealCountdown(detectionResult.countdown || 0);
   }, [detectionResult, useRealDetection]);
 
+  // Tick countdown and transition signal properly when timer ends
   useEffect(() => {
     if (!useRealDetection || realCountdown <= 0) return;
     const timer = setInterval(() => {
       setRealCountdown((c) => {
         if (c <= 1) {
           clearInterval(timer);
-          // Transition signal when timer ends
-          const nextLight = detectionResult!.lightState === "red" ? "green"
-            : detectionResult!.lightState === "green" ? "yellow"
+          const currentLight = detectionResult!.lightState;
+          const nextLight = currentLight === "red" ? "green"
+            : currentLight === "green" ? "yellow"
             : "red";
           const nextAction = nextLight === "green" ? "PROCEED"
             : nextLight === "yellow" ? "PREPARE TO STOP"
             : "STOP";
+          const nextCountdown = nextLight === "red" ? 30 : nextLight === "yellow" ? 5 : 45;
           setDetectionResult({
             ...detectionResult!,
             lightState: nextLight,
             action: nextAction,
-            countdown: nextLight === "red" ? 30 : nextLight === "yellow" ? 5 : 0,
+            countdown: nextCountdown,
           });
           return 0;
         }
@@ -142,15 +136,12 @@ const ActionPanel = () => {
   // Fetch nearest traffic signal via Overpass API
   useEffect(() => {
     if (!userCoords) return;
-
-    // Skip if we already searched near this location (within 500m)
     if (lastSearchCoords.current) {
       const moved = haversineDistance(
         userCoords.lat, userCoords.lng,
         lastSearchCoords.current.lat, lastSearchCoords.current.lng
       );
       if (moved < 500) {
-        // Just update distance
         if (nearestSignal) {
           const newDist = haversineDistance(userCoords.lat, userCoords.lng, nearestSignal.lat, nearestSignal.lng);
           setNearestSignal((prev) => prev ? { ...prev, distance: newDist } : null);
@@ -158,48 +149,14 @@ const ActionPanel = () => {
         return;
       }
     }
-
     setSignalLoading(true);
     lastSearchCoords.current = { ...userCoords };
-
     fetchNearestSignal(userCoords.lat, userCoords.lng).then((result) => {
       setNearestSignal(result);
       setSignalLoading(false);
     });
   }, [userCoords]);
 
-  // Simulated actions fallback
-  const simActions: ActionState[] = routeData
-    ? [
-        { light: "red", message: "STOP", detail: `${routeData.signalCount} signals on route — Next signal ahead`, countdown: 18, density: routeData.signalCount > 10 ? "High" : routeData.signalCount > 5 ? "Medium" : "Low" },
-        { light: "yellow", message: "PREPARE TO STOP", detail: `${routeData.signalCount - Math.floor(routeData.signalCount / 3)} signals remaining`, countdown: 4, density: "Medium" },
-        { light: "green", message: "PROCEED", detail: `Clear stretch ahead • ETA ${routeData.duration}`, countdown: 0, density: "Low" },
-      ]
-    : [
-        { light: "red", message: "STOP", detail: "Signal detected — Hold position", countdown: 18, density: "High" },
-        { light: "yellow", message: "PREPARE TO STOP", detail: "Signal changing soon", countdown: 4, density: "Medium" },
-        { light: "green", message: "PROCEED", detail: "Clear road ahead", countdown: 0, density: "Low" },
-      ];
-
-  useEffect(() => {
-    if (!isActive || useRealDetection) return;
-    const interval = setInterval(() => {
-      setCurrent((c) => (c + 1) % simActions.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [isActive, simActions.length, useRealDetection]);
-
-  useEffect(() => {
-    if (!isActive || useRealDetection) return;
-    setCountdown(simActions[current]?.countdown ?? 0);
-    if ((simActions[current]?.countdown ?? 0) <= 0) return;
-    const interval = setInterval(() => {
-      setCountdown((c) => Math.max(0, c - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [current, isActive, useRealDetection]);
-
-  // Nearest signal badge component
   const SignalBadge = () => {
     if (signalLoading) {
       return (
@@ -229,19 +186,18 @@ const ActionPanel = () => {
     );
   };
 
+  // Inactive state — no camera, no detection
   if (!isActive) {
     return (
       <div className="glass-panel p-4 flex flex-col h-full">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
         </div>
-
         <SignalBadge />
-
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <VideoOff className="w-10 h-10" />
           <p className="text-sm text-center">
-            Start the camera, enter a route, or upload an image to see live signal status
+            Start the camera or upload an image to see live signal status
           </p>
         </div>
         <div className="flex justify-center gap-3 mt-4">
@@ -253,33 +209,30 @@ const ActionPanel = () => {
     );
   }
 
+  // Build action from real AI detection only — no fake simulation
   const action: ActionState = useRealDetection
     ? {
-        light: detectionResult.lightState as "red" | "yellow" | "green",
-        message: detectionResult.action || "SCANNING",
-        detail: detectionResult.detections.length > 0
-          ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
+        light: detectionResult!.lightState as "red" | "yellow" | "green",
+        message: detectionResult!.action || "SCANNING",
+        detail: detectionResult!.detections.length > 0
+          ? `Detected: ${detectionResult!.detections.map((d) => d.label).join(", ")}`
           : "Analyzing traffic...",
-        countdown: detectionResult.countdown || 0,
-        density: detectionResult.density || "Low",
+        countdown: realCountdown,
+        density: detectionResult!.density || "Low",
       }
-    : detectionResult && !detectionResult.lightState
-    ? {
-        light: detectionResult.density === "High" ? "red" as const : detectionResult.density === "Medium" ? "yellow" as const : "green" as const,
-        message: detectionResult.action || "ANALYZED",
-        detail: detectionResult.detections.length > 0
-          ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
+    : {
+        light: (detectionResult!.density === "High" ? "red" : detectionResult!.density === "Medium" ? "yellow" : "green") as "red" | "yellow" | "green",
+        message: detectionResult!.action || "ANALYZED",
+        detail: detectionResult!.detections.length > 0
+          ? `Detected: ${detectionResult!.detections.map((d) => d.label).join(", ")}`
           : "No signal found — density analysis only",
         countdown: 0,
-        density: detectionResult.density || "Low",
-      }
-    : simActions[current];
+        density: detectionResult!.density || "Low",
+      };
 
   const config = lightConfig[action.light];
   const Icon = config.icon;
-  const animKey = useRealDetection
-    ? `real-${action.light}-${action.message}`
-    : `sim-${current}`;
+  const sourceLabel = cameraActive ? "LIVE CAMERA" : "IMAGE UPLOAD";
 
   return (
     <div className="glass-panel p-4 flex flex-col h-full">
@@ -287,7 +240,7 @@ const ActionPanel = () => {
         <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
         <span className="ml-auto text-[10px] font-mono text-primary flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-traffic-green animate-pulse" />
-          {useRealDetection ? "AI DETECTION" : cameraActive ? "CAMERA" : detectionResult ? "IMAGE" : "ROUTE"}
+          {sourceLabel}
         </span>
       </div>
 
@@ -295,7 +248,7 @@ const ActionPanel = () => {
 
       <AnimatePresence mode="wait">
         <motion.div
-          key={animKey}
+          key={`${action.light}-${action.message}`}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
@@ -306,9 +259,9 @@ const ActionPanel = () => {
           <h2 className={`text-3xl font-bold font-mono tracking-wider ${config.text}`}>
             {action.message}
           </h2>
-          {(action.countdown > 0 || (useRealDetection && realCountdown > 0)) && (
+          {action.countdown > 0 && (
             <span className={`text-5xl font-mono font-bold ${config.text} glow-text-cyan`}>
-              {useRealDetection ? realCountdown : countdown}s
+              {action.countdown}s
             </span>
           )}
           <p className="text-sm text-muted-foreground text-center">{action.detail}</p>
