@@ -30,6 +30,23 @@ const NotificationSubscription = () => {
         notify_sms: !!phone,
       });
       if (error) throw error;
+
+      // Send confirmation email via EmailJS
+      if (email) {
+        await emailjs.send(
+          "service_gce8cg6",
+          "template_yu1x3e9",
+          {
+            to_email: email,
+            contact_name: "Subscriber",
+            sender_name: "GenAI-YOLO",
+            sender_email: user.email || "",
+            message: "You have been subscribed to real-time traffic alerts from GenAI-YOLO Traffic Intelligence Platform. You will receive notifications for critical events.",
+          },
+          "1bHGPrVM0tl7vQ2pU"
+        );
+      }
+
       toast({ title: "Subscribed!", description: "You'll receive real-time traffic notifications." });
       setEmail("");
       setPhone("");
