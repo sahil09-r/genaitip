@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Radio, LogOut, Sun, Moon } from "lucide-react";
+import { Radio, LogOut, Sun, Moon, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
