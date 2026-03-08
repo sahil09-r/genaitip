@@ -80,7 +80,7 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
 const ActionPanel = () => {
   const { cameraActive, routeData, detectionResult, setDetectionResult } = useDashboard();
   const isActive = cameraActive || !!routeData || !!detectionResult;
-  const useRealDetection = (cameraActive || !!detectionResult) && detectionResult && detectionResult.lightState;
+  const useRealDetection = !!detectionResult && !!detectionResult.lightState;
 
   const [current, setCurrent] = useState(0);
   const [countdown, setCountdown] = useState(0);
@@ -241,7 +241,7 @@ const ActionPanel = () => {
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <VideoOff className="w-10 h-10" />
           <p className="text-sm text-center">
-            Start the camera or enter a route to see live signal status
+            Start the camera, enter a route, or upload an image to see live signal status
           </p>
         </div>
         <div className="flex justify-center gap-3 mt-4">
@@ -261,6 +261,16 @@ const ActionPanel = () => {
           ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
           : "Analyzing traffic...",
         countdown: detectionResult.countdown || 0,
+        density: detectionResult.density || "Low",
+      }
+    : detectionResult && !detectionResult.lightState
+    ? {
+        light: detectionResult.density === "High" ? "red" as const : detectionResult.density === "Medium" ? "yellow" as const : "green" as const,
+        message: detectionResult.action || "ANALYZED",
+        detail: detectionResult.detections.length > 0
+          ? `Detected: ${detectionResult.detections.map((d) => d.label).join(", ")}`
+          : "No signal found — density analysis only",
+        countdown: 0,
         density: detectionResult.density || "Low",
       }
     : simActions[current];
