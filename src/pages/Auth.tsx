@@ -244,6 +244,15 @@ const Auth = () => {
           </p>
         </div>
       </motion.div>
+
+      <footer className="absolute bottom-4 text-center">
+        <p className="text-xs text-muted-foreground font-mono">
+          © {new Date().getFullYear()} GenAI-YOLO Traffic Intelligence Platform. All rights reserved.
+        </p>
+        <p className="text-[10px] text-muted-foreground/70 font-mono mt-1">
+          Admin: Sahil Sinha
+        </p>
+      </footer>
     </div>
   );
 };
