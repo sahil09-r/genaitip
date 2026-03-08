@@ -235,15 +235,16 @@ const LiveFeedPanel = () => {
       </div>
 
       <div className="relative rounded-lg overflow-hidden flex-1 min-h-[280px] bg-secondary">
+        {/* Always render video so ref is available for stream assignment */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full object-cover ${cameraActive ? "" : "hidden"}`}
+        />
         {cameraActive ? (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
             {/* Bounding box overlay */}
             <canvas
               ref={overlayRef}
