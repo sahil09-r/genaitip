@@ -1,23 +1,20 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, Scan, X, ImageIcon } from "lucide-react";
+import { Upload, Scan, X, ImageIcon, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDashboard } from "@/contexts/DashboardContext";
-import type { Detection } from "@/contexts/DashboardContext";
+import type { DetectionResult, Detection } from "@/contexts/DashboardContext";
 
 const DETECT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/detect-frame`;
 
 const ImageUploadPanel = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);
+  const [localResult, setLocalResult] = useState<DetectionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const {
-    routeData,
-    setDetectionResult,
-    detectionResult,
-    addNotification,
-  } = useDashboard();
+  const { addNotification } = useDashboard();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -27,51 +24,14 @@ const ImageUploadPanel = () => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       setUploadedImage(ev.target?.result as string);
-      setDetectionResult(null);
+      setLocalResult(null);
+      setError(null);
     };
     reader.readAsDataURL(file);
   };
 
-  const detectImage = useCallback(async () => {
-    if (!uploadedImage) return;
-    setDetecting(true);
-    try {
-      const routeContext = routeData
-        ? { currentSignal: 1, totalSignals: routeData.signalCount }
-        : undefined;
-
-      const resp = await fetch(DETECT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ image: uploadedImage, routeContext }),
-      });
-
-      if (!resp.ok) {
-        console.error("Detection error:", resp.status);
-        addNotification({ text: "Detection failed. Please try again.", type: "warning" });
-        return;
-      }
-
-      const result = await resp.json();
-      setDetectionResult(result);
-
-      addNotification({
-        text: `Image analyzed: ${result.detections?.length || 0} object(s) detected — ${result.density} density`,
-        type: "info",
-      });
-    } catch (err) {
-      console.error("Detection fetch error:", err);
-      addNotification({ text: "Detection request failed.", type: "warning" });
-    } finally {
-      setDetecting(false);
-    }
-  }, [uploadedImage, routeData, setDetectionResult, addNotification]);
-
-  const drawOverlay = useCallback(() => {
-    if (!overlayRef.current || !imgRef.current || !detectionResult?.detections?.length) return;
+  const drawOverlay = useCallback((result: DetectionResult | null) => {
+    if (!overlayRef.current || !imgRef.current) return;
     const overlay = overlayRef.current;
     const img = imgRef.current;
 
@@ -81,7 +41,9 @@ const ImageUploadPanel = () => {
     if (!ctx) return;
     ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-    detectionResult.detections.forEach((det: Detection) => {
+    if (!result?.detections?.length) return;
+
+    result.detections.forEach((det: Detection) => {
       const x = det.bbox.x * overlay.width;
       const y = det.bbox.y * overlay.height;
       const w = det.bbox.w * overlay.width;
@@ -103,11 +65,67 @@ const ImageUploadPanel = () => {
       ctx.fillStyle = "#fff";
       ctx.fillText(label, x + 4, y - 4);
     });
-  }, [detectionResult]);
+  }, []);
+
+  const detectImage = useCallback(async () => {
+    if (!uploadedImage) return;
+    setDetecting(true);
+    setError(null);
+    try {
+      const resp = await fetch(DETECT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ image: uploadedImage }),
+      });
+
+      if (resp.status === 429) {
+        setError("Rate limited. Please wait a moment and try again.");
+        return;
+      }
+      if (resp.status === 402) {
+        setError("AI credits exhausted.");
+        return;
+      }
+      if (!resp.ok) {
+        setError("Detection failed. Please try again.");
+        return;
+      }
+
+      const result: DetectionResult = await resp.json();
+      setLocalResult(result);
+
+      // Draw bounding boxes
+      setTimeout(() => drawOverlay(result), 100);
+
+      // Build summary notification
+      const parts: string[] = [];
+      if (result.detections.length > 0) {
+        parts.push(`${result.detections.length} object(s) detected`);
+      }
+      if (result.lightState) {
+        parts.push(`Signal: ${result.lightState.toUpperCase()}`);
+      }
+      parts.push(`Density: ${result.density}`);
+
+      addNotification({
+        text: `Image analysis: ${parts.join(" • ")}`,
+        type: result.lightState === "red" ? "alert" : "info",
+      });
+    } catch (err) {
+      console.error("Detection fetch error:", err);
+      setError("Network error. Check your connection.");
+    } finally {
+      setDetecting(false);
+    }
+  }, [uploadedImage, addNotification, drawOverlay]);
 
   const clearImage = () => {
     setUploadedImage(null);
-    setDetectionResult(null);
+    setLocalResult(null);
+    setError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -132,7 +150,7 @@ const ImageUploadPanel = () => {
             Drop an image here or click to upload
           </p>
           <p className="text-[10px] text-muted-foreground font-mono">
-            JPG, PNG, WEBP supported
+            JPG, PNG, WEBP • Traffic scenes, signals, road signs
           </p>
           <input
             ref={fileInputRef}
@@ -150,13 +168,20 @@ const ImageUploadPanel = () => {
               src={uploadedImage}
               alt="Uploaded for detection"
               className="w-full max-h-[300px] object-contain"
-              onLoad={drawOverlay}
+              onLoad={() => drawOverlay(localResult)}
             />
             <canvas
               ref={overlayRef}
               className="absolute inset-0 w-full h-full pointer-events-none"
             />
           </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              {error}
+            </div>
+          )}
 
           <Button
             onClick={detectImage}
@@ -166,52 +191,84 @@ const ImageUploadPanel = () => {
             {detecting ? (
               <>
                 <Scan className="w-3.5 h-3.5 animate-spin" />
-                Analyzing...
+                Analyzing with AI...
+              </>
+            ) : localResult ? (
+              <>
+                <Scan className="w-3.5 h-3.5" />
+                Re-analyze
               </>
             ) : (
               <>
                 <Scan className="w-3.5 h-3.5" />
-                Run Detection
+                Run AI Detection
               </>
             )}
           </Button>
 
-          {detectionResult && (
+          {localResult && (
             <div className="bg-secondary/50 rounded-lg p-3 space-y-2 font-mono text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Detections</span>
-                <span className="text-primary font-bold">{detectionResult.detections.length}</span>
-              </div>
-              {detectionResult.lightState && (
+              {/* Signal state */}
+              {localResult.lightState ? (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Signal</span>
-                  <span className={`font-bold ${
-                    detectionResult.lightState === "red" ? "text-traffic-red" :
-                    detectionResult.lightState === "yellow" ? "text-traffic-yellow" :
-                    "text-traffic-green"
+                  <span className="text-muted-foreground">Traffic Signal</span>
+                  <span className={`font-bold px-2 py-0.5 rounded ${
+                    localResult.lightState === "red"
+                      ? "bg-traffic-red/20 text-traffic-red"
+                      : localResult.lightState === "yellow"
+                      ? "bg-traffic-yellow/20 text-traffic-yellow"
+                      : "bg-traffic-green/20 text-traffic-green"
                   }`}>
-                    {detectionResult.lightState.toUpperCase()}
+                    {localResult.lightState.toUpperCase()}
                   </span>
                 </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Density</span>
-                <span className="text-foreground">{detectionResult.density}</span>
-              </div>
-              {detectionResult.action && (
-                <div className="pt-1 border-t border-border">
-                  <span className="text-muted-foreground">Action: </span>
-                  <span className="text-foreground">{detectionResult.action}</span>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Traffic Signal</span>
+                  <span className="text-muted-foreground/70">Not detected</span>
                 </div>
               )}
-              {detectionResult.detections.length > 0 && (
-                <div className="pt-1 border-t border-border space-y-1">
-                  {detectionResult.detections.map((det, i) => (
-                    <div key={i} className="flex items-center justify-between">
+
+              {/* Density */}
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Traffic Density</span>
+                <span className={`font-bold px-2 py-0.5 rounded ${
+                  localResult.density === "High"
+                    ? "bg-traffic-red/20 text-traffic-red"
+                    : localResult.density === "Medium"
+                    ? "bg-traffic-yellow/20 text-traffic-yellow"
+                    : "bg-traffic-green/20 text-traffic-green"
+                }`}>
+                  {localResult.density}
+                </span>
+              </div>
+
+              {/* Action */}
+              {localResult.action && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Recommended</span>
+                  <span className="text-primary font-bold">{localResult.action}</span>
+                </div>
+              )}
+
+              {/* Detections list */}
+              {localResult.detections.length > 0 ? (
+                <div className="pt-2 border-t border-border space-y-1.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Detected Objects ({localResult.detections.length})
+                  </span>
+                  {localResult.detections.map((det, i) => (
+                    <div key={i} className="flex items-center justify-between bg-background/50 rounded px-2 py-1">
                       <span className="text-foreground">{det.label}</span>
-                      <span className="text-primary">{Math.round(det.confidence * 100)}%</span>
+                      <span className="text-primary font-bold">{Math.round(det.confidence * 100)}%</span>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-border">
+                  <span className="text-muted-foreground/70">
+                    No specific signs or signals detected — density analysis based on vehicle/pedestrian count
+                  </span>
                 </div>
               )}
             </div>
