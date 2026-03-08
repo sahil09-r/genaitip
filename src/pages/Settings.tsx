@@ -16,6 +16,7 @@ interface EmergencyContact {
   id: string;
   name: string;
   phone: string;
+  email: string | null;
 }
 
 const Settings = () => {
