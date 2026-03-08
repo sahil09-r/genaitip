@@ -296,9 +296,9 @@ const ActionPanel = () => {
           <h2 className={`text-3xl font-bold font-mono tracking-wider ${config.text}`}>
             {action.message}
           </h2>
-          {action.countdown > 0 && (
+          {(action.countdown > 0 || (useRealDetection && realCountdown > 0)) && (
             <span className={`text-5xl font-mono font-bold ${config.text} glow-text-cyan`}>
-              {useRealDetection ? action.countdown : countdown}s
+              {useRealDetection ? realCountdown : countdown}s
             </span>
           )}
           <p className="text-sm text-muted-foreground text-center">{action.detail}</p>
