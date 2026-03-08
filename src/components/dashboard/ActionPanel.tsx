@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Octagon, AlertTriangle, CircleCheck, VideoOff, MapPin, Navigation } from "lucide-react";
+import { Octagon, AlertTriangle, CircleCheck, VideoOff, MapPin, Navigation, Loader2 } from "lucide-react";
 import { useDashboard } from "@/contexts/DashboardContext";
 
 interface ActionState {
@@ -13,7 +13,7 @@ interface ActionState {
 
 interface NearestSignal {
   name: string;
-  distance: number; // meters
+  distance: number;
   lat: number;
   lng: number;
 }
@@ -23,8 +23,6 @@ const lightConfig = {
   yellow: { icon: AlertTriangle, bg: "bg-traffic-yellow/15", border: "border-traffic-yellow/40", text: "text-traffic-yellow", glow: "shadow-[0_0_30px_hsl(var(--traffic-yellow)/0.3)]" },
   green: { icon: CircleCheck, bg: "bg-traffic-green/15", border: "border-traffic-green/40", text: "text-traffic-green", glow: "shadow-[0_0_30px_hsl(var(--traffic-green)/0.3)]" },
 };
-
-const GOOGLE_MAPS_API_KEY = "AIzaSyAZcUF_UZcDJvBV_pE5DfgdaK5x38al32o";
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -40,6 +38,45 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
+async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSignal | null> {
+  // Use Overpass API (OpenStreetMap) to find nearby traffic signals
+  const radius = 2000; // 2km
+  const query = `
+    [out:json][timeout:10];
+    (
+      node["highway"="traffic_signals"](around:${radius},${lat},${lng});
+    );
+    out body;
+  `;
+
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    const data = await res.json();
+
+    if (!data.elements || data.elements.length === 0) return null;
+
+    let closest: NearestSignal | null = null;
+    let minDist = Infinity;
+
+    for (const el of data.elements) {
+      const dist = haversineDistance(lat, lng, el.lat, el.lon);
+      if (dist < minDist) {
+        minDist = dist;
+        const name = el.tags?.name || el.tags?.["crossing:ref"] || `Signal #${el.id}`;
+        closest = { name, distance: dist, lat: el.lat, lng: el.lon };
+      }
+    }
+
+    return closest;
+  } catch {
+    return null;
+  }
+}
+
 const ActionPanel = () => {
   const { cameraActive, routeData, detectionResult } = useDashboard();
   const isActive = cameraActive || !!routeData;
@@ -50,11 +87,16 @@ const ActionPanel = () => {
   const [nearestSignal, setNearestSignal] = useState<NearestSignal | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const searchDoneRef = useRef(false);
+  const lastSearchCoords = useRef<{ lat: number; lng: number } | null>(null);
 
   // Get user location
   useEffect(() => {
     if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
     const watchId = navigator.geolocation.watchPosition(
       (pos) => setUserCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => {},
@@ -63,60 +105,33 @@ const ActionPanel = () => {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
-  // Find nearest traffic signal using Google Maps Places API
+  // Fetch nearest traffic signal via Overpass API
   useEffect(() => {
-    if (!userCoords || searchDoneRef.current) return;
-    if (!window.google?.maps?.places) return;
+    if (!userCoords) return;
+
+    // Skip if we already searched near this location (within 500m)
+    if (lastSearchCoords.current) {
+      const moved = haversineDistance(
+        userCoords.lat, userCoords.lng,
+        lastSearchCoords.current.lat, lastSearchCoords.current.lng
+      );
+      if (moved < 500) {
+        // Just update distance
+        if (nearestSignal) {
+          const newDist = haversineDistance(userCoords.lat, userCoords.lng, nearestSignal.lat, nearestSignal.lng);
+          setNearestSignal((prev) => prev ? { ...prev, distance: newDist } : null);
+        }
+        return;
+      }
+    }
 
     setSignalLoading(true);
-    searchDoneRef.current = true;
+    lastSearchCoords.current = { ...userCoords };
 
-    // Create a temporary invisible map for PlacesService
-    const tempDiv = document.createElement("div");
-    const tempMap = new google.maps.Map(tempDiv, {
-      center: { lat: userCoords.lat, lng: userCoords.lng },
-      zoom: 15,
+    fetchNearestSignal(userCoords.lat, userCoords.lng).then((result) => {
+      setNearestSignal(result);
+      setSignalLoading(false);
     });
-
-    const service = new google.maps.places.PlacesService(tempMap);
-    service.nearbySearch(
-      {
-        location: { lat: userCoords.lat, lng: userCoords.lng },
-        radius: 2000,
-        keyword: "traffic signal traffic light",
-      },
-      (results, status) => {
-        setSignalLoading(false);
-        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-          // Find closest
-          let closest: NearestSignal | null = null;
-          let minDist = Infinity;
-          for (const place of results) {
-            const plat = place.geometry?.location?.lat();
-            const plng = place.geometry?.location?.lng();
-            if (plat == null || plng == null) continue;
-            const dist = haversineDistance(userCoords.lat, userCoords.lng, plat, plng);
-            if (dist < minDist) {
-              minDist = dist;
-              closest = { name: place.name || "Traffic Signal", distance: dist, lat: plat, lng: plng };
-            }
-          }
-          setNearestSignal(closest);
-        }
-      }
-    );
-  }, [userCoords]);
-
-  // Re-search when user moves significantly (>500m)
-  useEffect(() => {
-    if (!nearestSignal || !userCoords) return;
-    const dist = haversineDistance(userCoords.lat, userCoords.lng, nearestSignal.lat, nearestSignal.lng);
-    // Update distance in real-time
-    setNearestSignal((prev) => prev ? { ...prev, distance: dist } : null);
-    // If user moved far, re-search
-    if (dist > 2000) {
-      searchDoneRef.current = false;
-    }
   }, [userCoords]);
 
   // Simulated actions fallback
@@ -150,6 +165,36 @@ const ActionPanel = () => {
     return () => clearInterval(interval);
   }, [current, isActive, useRealDetection]);
 
+  // Nearest signal badge component
+  const SignalBadge = () => {
+    if (signalLoading) {
+      return (
+        <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center gap-2">
+          <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+          <span className="text-xs text-muted-foreground font-mono">Locating nearest signal...</span>
+        </div>
+      );
+    }
+    if (!nearestSignal) return null;
+    return (
+      <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[10px] font-mono text-muted-foreground block">Nearest Signal</span>
+            <span className="text-xs font-medium text-foreground truncate block">{nearestSignal.name}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          <Navigation className="w-3 h-3 text-primary" />
+          <span className="text-sm font-mono text-primary font-bold">
+            {formatDistance(nearestSignal.distance)}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   if (!isActive) {
     return (
       <div className="glass-panel p-4 flex flex-col h-full">
@@ -157,25 +202,7 @@ const ActionPanel = () => {
           <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
         </div>
 
-        {/* Nearest signal info even when inactive */}
-        {nearestSignal && (
-          <div className="mb-3 bg-secondary/50 rounded-lg p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-mono text-primary">
-              <MapPin className="w-3 h-3" />
-              <span>Nearest Signal</span>
-            </div>
-            <p className="text-sm font-semibold text-foreground truncate">{nearestSignal.name}</p>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
-              <Navigation className="w-3 h-3" />
-              <span>{formatDistance(nearestSignal.distance)} away</span>
-            </div>
-          </div>
-        )}
-        {signalLoading && (
-          <div className="mb-3 text-xs text-muted-foreground font-mono animate-pulse">
-            Locating nearest signal...
-          </div>
-        )}
+        <SignalBadge />
 
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <VideoOff className="w-10 h-10" />
@@ -220,18 +247,7 @@ const ActionPanel = () => {
         </span>
       </div>
 
-      {/* Nearest signal info */}
-      {nearestSignal && (
-        <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className="text-xs font-medium text-foreground truncate">{nearestSignal.name}</span>
-          </div>
-          <span className="text-xs font-mono text-primary font-bold shrink-0 ml-2">
-            {formatDistance(nearestSignal.distance)}
-          </span>
-        </div>
-      )}
+      <SignalBadge />
 
       <AnimatePresence mode="wait">
         <motion.div
