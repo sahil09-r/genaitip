@@ -112,14 +112,25 @@ const Settings = () => {
   };
 
   const sendAlert = async (contact: EmergencyContact) => {
+    const contactEmail = contact.email || contact.phone;
     setSendingTo(contact.id);
     try {
+      const senderName = fullName || user?.email || "User";
       const message = alertMessage
-        ? `${alertMessage}\n\n— Sent by ${fullName || user?.email || "User"} via GenAI-YOLO`
-        : `Emergency alert from ${fullName || user?.email || "User"}!\n\n— Sent via GenAI-YOLO`;
+        ? `${alertMessage}`
+        : `Emergency alert from ${senderName}!`;
 
-      const { data, error } = await supabase.functions.invoke("send-sms", {
-        body: { to: contact.phone, text: message },
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #dc2626;">🚨 Emergency Alert</h2>
+          <p style="font-size: 16px; line-height: 1.6;">${message}</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 14px;">— Sent by <strong>${senderName}</strong> via GenAI-YOLO Traffic Intelligence Platform</p>
+        </div>
+      `;
+
+      const { data, error } = await supabase.functions.invoke("send-email", {
+        body: { to: contactEmail, subject: `🚨 Emergency Alert from ${senderName}`, html: htmlBody, text: message },
       });
 
       if (error) throw error;
@@ -127,12 +138,12 @@ const Settings = () => {
 
       toast({
         title: "Alert Sent!",
-        description: `Emergency message sent to ${contact.name} (${contact.phone}).`,
+        description: `Emergency email sent to ${contact.name} (${contactEmail}).`,
       });
     } catch (err: unknown) {
       toast({
         title: "Failed to send",
-        description: err instanceof Error ? err.message : "Could not send SMS.",
+        description: err instanceof Error ? err.message : "Could not send email.",
         variant: "destructive",
       });
     } finally {
