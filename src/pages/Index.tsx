@@ -13,6 +13,7 @@ import DensityPanel from "@/components/dashboard/DensityPanel";
 import NotificationsPanel from "@/components/dashboard/NotificationsPanel";
 import NotificationSubscription from "@/components/dashboard/NotificationSubscription";
 import AIChatbot from "@/components/dashboard/AIChatbot";
+import ImageUploadPanel from "@/components/dashboard/ImageUploadPanel";
 
 const Index = () => {
   const { user, signOut } = useAuth();
