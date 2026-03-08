@@ -15,6 +15,7 @@ import NotificationsPanel from "@/components/dashboard/NotificationsPanel";
 import NotificationSubscription from "@/components/dashboard/NotificationSubscription";
 import AIChatbot from "@/components/dashboard/AIChatbot";
 import ImageUploadPanel from "@/components/dashboard/ImageUploadPanel";
+import TrafficHeatmap from "@/components/dashboard/TrafficHeatmap";
 
 const Index = () => {
   const { user, signOut } = useAuth();
@@ -105,6 +106,11 @@ const Index = () => {
         <div className="flex flex-col gap-4">
           <NotificationSubscription />
           <ImageUploadPanel />
+        </div>
+
+        {/* Traffic Heatmap - full width */}
+        <div className="lg:col-span-3">
+          <TrafficHeatmap />
         </div>
       </div>
 
