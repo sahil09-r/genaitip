@@ -156,16 +156,34 @@ const LiveFeedPanel = () => {
   const startCamera = async () => {
     try {
       setCameraError(null);
+
+      // Check if mediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError("Camera not supported. Try opening the app in a new browser tab.");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Ensure video plays after source is set
+        await videoRef.current.play().catch(() => {});
       }
       setCameraActive(true);
     } catch (err: any) {
-      setCameraError(err.message || "Camera access denied");
+      console.error("Camera error:", err);
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        setCameraError("Camera permission denied. Please allow camera access and try again.");
+      } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+        setCameraError("No camera found on this device.");
+      } else if (err.name === "NotReadableError") {
+        setCameraError("Camera is in use by another application.");
+      } else {
+        setCameraError(err.message || "Camera access failed. Try opening in a new tab.");
+      }
     }
   };
 
