@@ -277,7 +277,7 @@ const ActionPanel = () => {
         <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
         <span className="ml-auto text-[10px] font-mono text-primary flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-traffic-green animate-pulse" />
-          {useRealDetection ? "AI DETECTION" : cameraActive ? "CAMERA" : "ROUTE"}
+          {useRealDetection ? "AI DETECTION" : cameraActive ? "CAMERA" : detectionResult ? "IMAGE" : "ROUTE"}
         </span>
       </div>
 
