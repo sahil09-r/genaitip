@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import emailjs from "@emailjs/browser";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, Phone, Mail, Save, ShieldAlert, Plus, Trash2, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, Save, ShieldAlert, Plus, Trash2, Send, Loader2, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,12 +12,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 interface EmergencyContact {
   id: string;
   name: string;
   phone: string;
   email: string | null;
+}
+
+interface Subscription {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  notify_email: boolean;
+  notify_sms: boolean;
+  created_at: string;
 }
 
 const Settings = () => {
@@ -38,10 +48,15 @@ const Settings = () => {
   const [addingContact, setAddingContact] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
 
+  // Subscriptions state
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+
   useEffect(() => {
     if (user) {
       loadProfile();
       loadContacts();
+      loadSubscriptions();
     }
   }, [user]);
 
@@ -68,6 +83,28 @@ const Settings = () => {
       .order("created_at", { ascending: true });
 
     if (data) setContacts(data);
+  };
+
+  const loadSubscriptions = async () => {
+    setSubsLoading(true);
+    const { data } = await supabase
+      .from("notification_subscriptions")
+      .select("*")
+      .eq("user_id", user!.id)
+      .order("created_at", { ascending: false });
+
+    if (data) setSubscriptions(data);
+    setSubsLoading(false);
+  };
+
+  const deleteSubscription = async (id: string) => {
+    const { error } = await supabase.from("notification_subscriptions").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setSubscriptions((prev) => prev.filter((s) => s.id !== id));
+      toast({ title: "Unsubscribed", description: "Subscription removed." });
+    }
   };
 
   const saveProfile = async () => {
@@ -167,9 +204,10 @@ const Settings = () => {
         <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="w-full grid grid-cols-2 bg-secondary">
+          <TabsList className="w-full grid grid-cols-3 bg-secondary">
             <TabsTrigger value="profile" className="gap-2"><User className="w-4 h-4" /> Profile</TabsTrigger>
-            <TabsTrigger value="help" className="gap-2"><ShieldAlert className="w-4 h-4" /> Emergency Help</TabsTrigger>
+            <TabsTrigger value="subscriptions" className="gap-2"><Bell className="w-4 h-4" /> Subscriptions</TabsTrigger>
+            <TabsTrigger value="help" className="gap-2"><ShieldAlert className="w-4 h-4" /> Emergency</TabsTrigger>
           </TabsList>
 
           {/* ── Profile Tab ── */}
@@ -216,6 +254,67 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
+          {/* ── Subscriptions Tab ── */}
+          <TabsContent value="subscriptions">
+            <Card className="glass-panel border-border">
+              <CardHeader>
+                <CardTitle className="text-lg">Notification Subscriptions</CardTitle>
+                <CardDescription>Manage your real-time traffic alert subscriptions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {subsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  </div>
+                ) : subscriptions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">No active subscriptions.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Subscribe from the dashboard to receive traffic alerts.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {subscriptions.map((sub) => (
+                      <div key={sub.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {sub.notify_email && sub.email && (
+                              <div className="flex items-center gap-1.5">
+                                <Mail className="w-3.5 h-3.5 text-primary" />
+                                <span className="text-sm text-foreground font-mono">{sub.email}</span>
+                              </div>
+                            )}
+                            {sub.notify_sms && sub.phone && (
+                              <div className="flex items-center gap-1.5">
+                                <Phone className="w-3.5 h-3.5 text-primary" />
+                                <span className="text-sm text-foreground font-mono">{sub.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {sub.notify_email && <Badge variant="secondary" className="text-[10px]">Email</Badge>}
+                            {sub.notify_sms && <Badge variant="secondary" className="text-[10px]">SMS</Badge>}
+                            <span className="text-[10px] text-muted-foreground">
+                              Since {new Date(sub.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteSubscription(sub.id)}
+                          className="text-destructive hover:text-destructive shrink-0 ml-3"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* ── Help Tab ── */}
           <TabsContent value="help">
             <Card className="glass-panel border-border">
@@ -224,7 +323,6 @@ const Settings = () => {
                 <CardDescription>Add contacts who will receive your alert message via email</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Add new contact */}
                 <div className="flex flex-col gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
                   <p className="text-sm font-medium text-foreground">Add a contact</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -237,7 +335,6 @@ const Settings = () => {
                   </Button>
                 </div>
 
-                {/* List contacts */}
                 {contacts.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-6">No emergency contacts added yet.</p>
                 ) : (
@@ -268,7 +365,6 @@ const Settings = () => {
                   </div>
                 )}
 
-                {/* Current alert message preview */}
                 {alertMessage && (
                   <div className="p-3 rounded-lg border border-border bg-muted/40">
                     <p className="text-xs text-muted-foreground mb-1 font-medium">Alert message preview:</p>
