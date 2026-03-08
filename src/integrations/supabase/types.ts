@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      emergency_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_subscriptions: {
         Row: {
           created_at: string
@@ -49,6 +73,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          alert_message: string | null
           created_at: string
           full_name: string | null
           id: string
@@ -57,6 +82,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          alert_message?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
@@ -65,6 +91,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          alert_message?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
