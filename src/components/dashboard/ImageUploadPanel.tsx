@@ -14,7 +14,7 @@ const ImageUploadPanel = () => {
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { addNotification } = useDashboard();
+  const { addNotification, setDetectionResult, setIsDetecting } = useDashboard();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
