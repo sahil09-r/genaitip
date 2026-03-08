@@ -259,6 +259,29 @@ const ImageUploadPanel = () => {
                 </span>
               </div>
 
+              {/* Countdown */}
+              {localResult.countdown > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Timer Detected</span>
+                  <span className="text-primary font-bold">{localResult.countdown}s</span>
+                </div>
+              )}
+
+              {/* Detected Numbers */}
+              {(() => {
+                const nums: string[] = [];
+                localResult.detections.forEach((det) => {
+                  const m = det.label.match(/\d+/g);
+                  if (m) nums.push(...m);
+                });
+                return nums.length > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Numbers Found</span>
+                    <span className="text-primary font-bold">{nums.join(", ")}</span>
+                  </div>
+                ) : null;
+              })()}
+
               {/* Action */}
               {localResult.action && (
                 <div className="flex items-center justify-between">
