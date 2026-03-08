@@ -57,20 +57,17 @@ const WeatherPanel = () => {
           const weatherData = await weatherRes.json();
 
           // Reverse geocode for location name
-          const geoRes = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${latitude}&longitude=${longitude}&count=1`
-          );
-          
-          // Use a simpler reverse geocode
           const revGeoRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=en`
           );
           const revGeoData = await revGeoRes.json();
 
           const locationName = revGeoData?.address?.city || 
             revGeoData?.address?.town || 
-            revGeoData?.address?.village || 
+            revGeoData?.address?.village ||
+            revGeoData?.address?.suburb ||
             revGeoData?.address?.county ||
+            revGeoData?.address?.state_district ||
             `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
 
           setWeather({
@@ -90,7 +87,7 @@ const WeatherPanel = () => {
         setError(err.message || "Location access denied");
         setLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 
     // Refresh every 5 minutes
