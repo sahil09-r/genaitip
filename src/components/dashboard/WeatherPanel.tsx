@@ -62,13 +62,13 @@ const WeatherPanel = () => {
           );
           const revGeoData = await revGeoRes.json();
 
-          const locationName = revGeoData?.address?.city || 
-            revGeoData?.address?.town || 
-            revGeoData?.address?.village ||
-            revGeoData?.address?.suburb ||
-            revGeoData?.address?.county ||
-            revGeoData?.address?.state_district ||
-            `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+          const addr = revGeoData?.address || {};
+          // Build specific location: prefer suburb/neighbourhood + city
+          const specific = addr.neighbourhood || addr.suburb || addr.village || addr.town || "";
+          const city = addr.city || addr.state_district || addr.county || "";
+          const locationName = specific && city && specific !== city
+            ? `${specific}, ${city}`
+            : specific || city || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
 
           setWeather({
             temperature: weatherData.current.temperature_2m,
