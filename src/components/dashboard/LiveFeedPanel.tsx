@@ -81,15 +81,28 @@ const LiveFeedPanel = () => {
         return;
       }
 
-      // Success — reset interval to base
-      currentIntervalRef.current = BASE_INTERVAL;
-
       if (!resp.ok) {
         console.error("Detection error:", resp.status);
         return;
       }
 
-      const result = await resp.json();
+      const result: {
+        detections: Detection[];
+        lightState: "red" | "yellow" | "green" | null;
+        density: "Low" | "Medium" | "High";
+        action: string;
+        countdown: number;
+        rateLimited?: boolean;
+      } = await resp.json();
+
+      if (result.rateLimited) {
+        currentIntervalRef.current = Math.min(currentIntervalRef.current * 2, MAX_INTERVAL);
+        console.warn(`AI gateway rate-limited. Backing off to ${currentIntervalRef.current / 1000}s`);
+        return;
+      }
+
+      // Success — reset interval to base
+      currentIntervalRef.current = BASE_INTERVAL;
       setDetectionResult(result);
 
       if (

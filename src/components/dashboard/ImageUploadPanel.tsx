@@ -94,7 +94,12 @@ const ImageUploadPanel = () => {
         return;
       }
 
-      const result: DetectionResult = await resp.json();
+      const result: DetectionResult & { rateLimited?: boolean; message?: string } = await resp.json();
+      if (result.rateLimited) {
+        setError(result.message || "Rate limited. Please wait a moment and try again.");
+        return;
+      }
+
       setLocalResult(result);
 
       // Sync to ActionPanel so Current Signal tab works with the timer
