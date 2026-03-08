@@ -16,6 +16,7 @@ import AIChatbot from "@/components/dashboard/AIChatbot";
 
 const Index = () => {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <DashboardProvider>
