@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Octagon, AlertTriangle, CircleCheck, VideoOff, MapPin, Navigation, Loader2 } from "lucide-react";
 import { useDashboard } from "@/contexts/DashboardContext";
@@ -71,51 +71,94 @@ async function fetchNearestSignal(lat: number, lng: number): Promise<NearestSign
   }
 }
 
+// Extracted as a standalone component to avoid ref warnings
+const SignalBadge = ({ loading, signal }: { loading: boolean; signal: NearestSignal | null }) => {
+  if (loading) {
+    return (
+      <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center gap-2">
+        <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+        <span className="text-xs text-muted-foreground font-mono">Locating nearest signal...</span>
+      </div>
+    );
+  }
+  if (!signal) return null;
+  return (
+    <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center justify-between">
+      <div className="flex items-center gap-2 min-w-0">
+        <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+        <div className="min-w-0">
+          <span className="text-[10px] font-mono text-muted-foreground block">Nearest Signal</span>
+          <span className="text-xs font-medium text-foreground truncate block">{signal.name}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0 ml-2">
+        <Navigation className="w-3 h-3 text-primary" />
+        <span className="text-sm font-mono text-primary font-bold">
+          {formatDistance(signal.distance)}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const ActionPanel = () => {
   const { cameraActive, detectionResult, setDetectionResult } = useDashboard();
   const isActive = cameraActive || !!detectionResult;
-  const useRealDetection = !!detectionResult && !!detectionResult.lightState;
+  const hasLightState = !!detectionResult && !!detectionResult.lightState;
 
   const [realCountdown, setRealCountdown] = useState(0);
   const [nearestSignal, setNearestSignal] = useState<NearestSignal | null>(null);
   const [signalLoading, setSignalLoading] = useState(false);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const lastSearchCoords = useRef<{ lat: number; lng: number } | null>(null);
+  const detectionRef = useRef(detectionResult);
+
+  // Keep ref in sync to avoid stale closures
+  useEffect(() => {
+    detectionRef.current = detectionResult;
+  }, [detectionResult]);
 
   // Sync countdown from detection result
   useEffect(() => {
-    if (!useRealDetection || !detectionResult) return;
+    if (!hasLightState || !detectionResult) return;
     setRealCountdown(detectionResult.countdown || 0);
-  }, [detectionResult, useRealDetection]);
+  }, [detectionResult, hasLightState]);
 
-  // Tick countdown and transition signal properly when timer ends
+  // Transition signal when countdown hits 0
+  const transitionSignal = useCallback(() => {
+    const det = detectionRef.current;
+    if (!det || !det.lightState) return;
+    const currentLight = det.lightState;
+    const nextLight = currentLight === "red" ? "green"
+      : currentLight === "green" ? "yellow"
+      : "red";
+    const nextAction = nextLight === "green" ? "PROCEED"
+      : nextLight === "yellow" ? "PREPARE TO STOP"
+      : "STOP";
+    const nextCountdown = nextLight === "red" ? 30 : nextLight === "yellow" ? 5 : 45;
+    setDetectionResult({
+      ...det,
+      lightState: nextLight,
+      action: nextAction,
+      countdown: nextCountdown,
+    });
+  }, [setDetectionResult]);
+
+  // Tick countdown every second
   useEffect(() => {
-    if (!useRealDetection || realCountdown <= 0) return;
+    if (!hasLightState || realCountdown <= 0) return;
     const timer = setInterval(() => {
       setRealCountdown((c) => {
         if (c <= 1) {
           clearInterval(timer);
-          const currentLight = detectionResult!.lightState;
-          const nextLight = currentLight === "red" ? "green"
-            : currentLight === "green" ? "yellow"
-            : "red";
-          const nextAction = nextLight === "green" ? "PROCEED"
-            : nextLight === "yellow" ? "PREPARE TO STOP"
-            : "STOP";
-          const nextCountdown = nextLight === "red" ? 30 : nextLight === "yellow" ? 5 : 45;
-          setDetectionResult({
-            ...detectionResult!,
-            lightState: nextLight,
-            action: nextAction,
-            countdown: nextCountdown,
-          });
+          transitionSignal();
           return 0;
         }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [realCountdown, useRealDetection]);
+  }, [realCountdown, hasLightState, transitionSignal]);
 
   // Get user location
   useEffect(() => {
@@ -157,43 +200,14 @@ const ActionPanel = () => {
     });
   }, [userCoords]);
 
-  const SignalBadge = () => {
-    if (signalLoading) {
-      return (
-        <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center gap-2">
-          <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-          <span className="text-xs text-muted-foreground font-mono">Locating nearest signal...</span>
-        </div>
-      );
-    }
-    if (!nearestSignal) return null;
-    return (
-      <div className="mb-3 bg-secondary/50 rounded-lg p-2.5 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-          <div className="min-w-0">
-            <span className="text-[10px] font-mono text-muted-foreground block">Nearest Signal</span>
-            <span className="text-xs font-medium text-foreground truncate block">{nearestSignal.name}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0 ml-2">
-          <Navigation className="w-3 h-3 text-primary" />
-          <span className="text-sm font-mono text-primary font-bold">
-            {formatDistance(nearestSignal.distance)}
-          </span>
-        </div>
-      </div>
-    );
-  };
-
-  // Inactive state — no camera, no detection
+  // Inactive state
   if (!isActive) {
     return (
       <div className="glass-panel p-4 flex flex-col h-full">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-sm font-semibold text-foreground">⚡ Current Signal</span>
         </div>
-        <SignalBadge />
+        <SignalBadge loading={signalLoading} signal={nearestSignal} />
         <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <VideoOff className="w-10 h-10" />
           <p className="text-sm text-center">
@@ -209,8 +223,8 @@ const ActionPanel = () => {
     );
   }
 
-  // Build action from real AI detection only — no fake simulation
-  const action: ActionState = useRealDetection
+  // Build action from real AI detection results only
+  const action: ActionState = hasLightState
     ? {
         light: detectionResult!.lightState as "red" | "yellow" | "green",
         message: detectionResult!.action || "SCANNING",
@@ -244,7 +258,7 @@ const ActionPanel = () => {
         </span>
       </div>
 
-      <SignalBadge />
+      <SignalBadge loading={signalLoading} signal={nearestSignal} />
 
       <AnimatePresence mode="wait">
         <motion.div
