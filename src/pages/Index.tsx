@@ -19,6 +19,7 @@ import ImageUploadPanel from "@/components/dashboard/ImageUploadPanel";
 const Index = () => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   return (
     <DashboardProvider>
