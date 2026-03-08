@@ -84,6 +84,7 @@ const LiveFeedPanel = () => {
     } catch (err) {
       console.error("Detection fetch error:", err);
     } finally {
+      detectingRef.current = false;
       setIsDetecting(false);
     }
   }, [routeData, setDetectionResult, setIsDetecting, addNotification]);
