@@ -33,9 +33,16 @@ const LiveFeedPanel = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const scheduleNext = useCallback(() => {
+    if (intervalRef.current) clearTimeout(intervalRef.current);
+    intervalRef.current = setTimeout(() => {
+      captureAndDetectRef.current();
+    }, currentIntervalRef.current);
+  }, []);
+
   const captureAndDetect = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
-    if (detectingRef.current) return; // skip if already in-flight
+    if (detectingRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -63,15 +70,26 @@ const LiveFeedPanel = () => {
         body: JSON.stringify({ image: base64, routeContext }),
       });
 
+      if (resp.status === 429) {
+        // Rate limited — back off
+        currentIntervalRef.current = Math.min(currentIntervalRef.current * 2, MAX_INTERVAL);
+        console.warn(`Rate limited. Backing off to ${currentIntervalRef.current / 1000}s`);
+        scheduleNext();
+        return;
+      }
+
+      // Success — reset interval to base
+      currentIntervalRef.current = BASE_INTERVAL;
+
       if (!resp.ok) {
         console.error("Detection error:", resp.status);
+        scheduleNext();
         return;
       }
 
       const result = await resp.json();
       setDetectionResult(result);
 
-      // Trigger notification on red light + high density (throttled)
       if (
         result.lightState === "red" &&
         result.density === "High" &&
@@ -88,8 +106,13 @@ const LiveFeedPanel = () => {
     } finally {
       detectingRef.current = false;
       setIsDetecting(false);
+      scheduleNext();
     }
-  }, [routeData, setDetectionResult, setIsDetecting, addNotification]);
+  }, [routeData, setDetectionResult, setIsDetecting, addNotification, scheduleNext]);
+
+  // Keep a stable ref to the latest captureAndDetect
+  const captureAndDetectRef = useRef(captureAndDetect);
+  useEffect(() => { captureAndDetectRef.current = captureAndDetect; }, [captureAndDetect]);
 
   // Draw bounding boxes
   useEffect(() => {
