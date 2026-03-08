@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Radio, LogOut } from "lucide-react";
+import { Radio, LogOut, Sun, Moon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import LiveFeedPanel from "@/components/dashboard/LiveFeedPanel";
@@ -15,6 +16,7 @@ import AIChatbot from "@/components/dashboard/AIChatbot";
 
 const Index = () => {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <DashboardProvider>
@@ -47,6 +49,9 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{user?.email}</span>
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
             <Button variant="ghost" size="icon" onClick={signOut} className="h-8 w-8">
               <LogOut className="w-4 h-4" />
             </Button>
