@@ -248,7 +248,7 @@ const Settings = () => {
                       <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{c.phone}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{c.email || c.phone}</p>
                         </div>
                         <div className="flex gap-2 shrink-0 ml-3">
                           <Button
