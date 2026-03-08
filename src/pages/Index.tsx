@@ -107,6 +107,11 @@ const Index = () => {
           <NotificationSubscription />
           <ImageUploadPanel />
         </div>
+
+        {/* Traffic Heatmap - full width */}
+        <div className="lg:col-span-3">
+          <TrafficHeatmap />
+        </div>
       </div>
 
       <AIChatbot />
