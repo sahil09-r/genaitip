@@ -121,7 +121,11 @@ const ActionPanel = () => {
   // Sync countdown from detection result
   useEffect(() => {
     if (!hasLightState || !detectionResult) return;
-    setRealCountdown(detectionResult.countdown || 0);
+    const defaultCountdowns = { red: 30, yellow: 5, green: 45 };
+    const cd = detectionResult.countdown > 0
+      ? detectionResult.countdown
+      : defaultCountdowns[detectionResult.lightState as "red" | "yellow" | "green"] || 30;
+    setRealCountdown(cd);
   }, [detectionResult, hasLightState]);
 
   // Transition signal when countdown hits 0
