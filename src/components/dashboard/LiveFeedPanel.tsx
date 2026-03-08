@@ -45,6 +45,7 @@ const LiveFeedPanel = () => {
 
     const base64 = canvas.toDataURL("image/jpeg", 0.7);
 
+    detectingRef.current = true;
     setIsDetecting(true);
     try {
       const routeContext = routeData
