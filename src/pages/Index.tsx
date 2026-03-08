@@ -52,6 +52,9 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{user?.email}</span>
+            <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} className="h-8 w-8" title="Settings">
+              <Settings className="w-4 h-4" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
