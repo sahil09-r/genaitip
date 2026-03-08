@@ -46,13 +46,17 @@ const LiveFeedPanel = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    // Downscale to 480p max for faster upload & detection
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    const scale = Math.min(1, 480 / vh);
+    canvas.width = Math.round(vw * scale);
+    canvas.height = Math.round(vh * scale);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const base64 = canvas.toDataURL("image/jpeg", 0.7);
+    const base64 = canvas.toDataURL("image/jpeg", 0.5);
 
     detectingRef.current = true;
     setIsDetecting(true);
