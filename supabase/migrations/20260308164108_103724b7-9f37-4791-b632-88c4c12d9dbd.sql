@@ -1,0 +1,1 @@
+ALTER TABLE public.emergency_contacts ADD COLUMN email text;

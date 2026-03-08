@@ -16,6 +16,7 @@ interface EmergencyContact {
   id: string;
   name: string;
   phone: string;
+  email: string | null;
 }
 
 const Settings = () => {
@@ -32,7 +33,7 @@ const Settings = () => {
   // Emergency contacts state
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [newName, setNewName] = useState("");
-  const [newPhone, setNewPhone] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [addingContact, setAddingContact] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
 
@@ -84,20 +85,20 @@ const Settings = () => {
   };
 
   const addContact = async () => {
-    if (!newName.trim() || !newPhone.trim()) {
-      toast({ title: "Error", description: "Name and phone are required.", variant: "destructive" });
+    if (!newName.trim() || !newEmail.trim()) {
+      toast({ title: "Error", description: "Name and email are required.", variant: "destructive" });
       return;
     }
     setAddingContact(true);
     const { error } = await supabase
       .from("emergency_contacts")
-      .insert({ user_id: user!.id, name: newName.trim(), phone: newPhone.trim() });
+      .insert({ user_id: user!.id, name: newName.trim(), phone: newEmail.trim(), email: newEmail.trim() });
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setNewName("");
-      setNewPhone("");
+      setNewEmail("");
       loadContacts();
       toast({ title: "Added", description: "Emergency contact added." });
     }
@@ -111,14 +112,25 @@ const Settings = () => {
   };
 
   const sendAlert = async (contact: EmergencyContact) => {
+    const contactEmail = contact.email || contact.phone;
     setSendingTo(contact.id);
     try {
+      const senderName = fullName || user?.email || "User";
       const message = alertMessage
-        ? `${alertMessage}\n\n— Sent by ${fullName || user?.email || "User"} via GenAI-YOLO`
-        : `Emergency alert from ${fullName || user?.email || "User"}!\n\n— Sent via GenAI-YOLO`;
+        ? `${alertMessage}`
+        : `Emergency alert from ${senderName}!`;
 
-      const { data, error } = await supabase.functions.invoke("send-sms", {
-        body: { to: contact.phone, text: message },
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #dc2626;">🚨 Emergency Alert</h2>
+          <p style="font-size: 16px; line-height: 1.6;">${message}</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+          <p style="color: #6b7280; font-size: 14px;">— Sent by <strong>${senderName}</strong> via GenAI-YOLO Traffic Intelligence Platform</p>
+        </div>
+      `;
+
+      const { data, error } = await supabase.functions.invoke("send-email", {
+        body: { to: contactEmail, subject: `🚨 Emergency Alert from ${senderName}`, html: htmlBody, text: message },
       });
 
       if (error) throw error;
@@ -126,12 +138,12 @@ const Settings = () => {
 
       toast({
         title: "Alert Sent!",
-        description: `Emergency message sent to ${contact.name} (${contact.phone}).`,
+        description: `Emergency email sent to ${contact.name} (${contactEmail}).`,
       });
     } catch (err: unknown) {
       toast({
         title: "Failed to send",
-        description: err instanceof Error ? err.message : "Could not send SMS.",
+        description: err instanceof Error ? err.message : "Could not send email.",
         variant: "destructive",
       });
     } finally {
@@ -211,7 +223,7 @@ const Settings = () => {
             <Card className="glass-panel border-border">
               <CardHeader>
                 <CardTitle className="text-lg">Emergency Contacts</CardTitle>
-                <CardDescription>Add contacts who will receive your alert message via SMS</CardDescription>
+                <CardDescription>Add contacts who will receive your alert message via email</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {/* Add new contact */}
@@ -219,7 +231,7 @@ const Settings = () => {
                   <p className="text-sm font-medium text-foreground">Add a contact</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Name" className="bg-secondary border-border" />
-                    <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+1234567890" className="bg-secondary border-border" />
+                    <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="email@example.com" type="email" className="bg-secondary border-border" />
                   </div>
                   <Button onClick={addContact} disabled={addingContact} size="sm" className="gap-2 w-fit">
                     {addingContact ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -236,7 +248,7 @@ const Settings = () => {
                       <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{c.phone}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{c.email || c.phone}</p>
                         </div>
                         <div className="flex gap-2 shrink-0 ml-3">
                           <Button
