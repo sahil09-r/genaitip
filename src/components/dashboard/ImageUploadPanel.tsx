@@ -97,8 +97,21 @@ const ImageUploadPanel = () => {
       const result: DetectionResult = await resp.json();
       setLocalResult(result);
 
+      // Sync to ActionPanel so Current Signal tab works with the timer
+      setDetectionResult(result);
+
       // Draw bounding boxes
       setTimeout(() => drawOverlay(result), 100);
+
+      // Extract any numbers from detections (countdown timers, speed limits, etc.)
+      const detectedNumbers: string[] = [];
+      result.detections.forEach((det) => {
+        const nums = det.label.match(/\d+/g);
+        if (nums) detectedNumbers.push(...nums);
+      });
+      if (result.countdown > 0) {
+        detectedNumbers.push(`${result.countdown}s timer`);
+      }
 
       // Build summary notification
       const parts: string[] = [];
@@ -109,10 +122,13 @@ const ImageUploadPanel = () => {
         parts.push(`Signal: ${result.lightState.toUpperCase()}`);
       }
       parts.push(`Density: ${result.density}`);
+      if (detectedNumbers.length > 0) {
+        parts.push(`Numbers: ${detectedNumbers.join(", ")}`);
+      }
 
       addNotification({
         text: `Image analysis: ${parts.join(" • ")}`,
-        type: result.lightState === "red" ? "alert" : "info",
+        type: result.lightState === "red" ? "alert" : result.lightState === "yellow" ? "warning" : "info",
       });
     } catch (err) {
       console.error("Detection fetch error:", err);
