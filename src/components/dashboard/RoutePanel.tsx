@@ -24,20 +24,9 @@ const RoutePanel = () => {
   const altRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const { setRouteData, addNotification } = useDashboard();
 
-  useEffect(() => {
-    if (document.getElementById("google-maps-script")) return;
-    const script = document.createElement("script");
-    script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => initMap();
-    document.head.appendChild(script);
-    return () => {};
-  }, []);
-
   const initMap = () => {
     if (!mapRef.current || !window.google) return;
+    if (mapInstanceRef.current) return;
     const map = new google.maps.Map(mapRef.current, {
       center: { lat: 28.6139, lng: 77.209 },
       zoom: 12,
@@ -66,8 +55,32 @@ const RoutePanel = () => {
   };
 
   useEffect(() => {
-    if (window.google && mapRef.current && !mapInstanceRef.current) initMap();
-  });
+    // If Google Maps is already loaded, init immediately
+    if (window.google && mapRef.current) {
+      initMap();
+      return;
+    }
+    // Avoid adding duplicate script
+    if (document.getElementById("google-maps-script")) {
+      // Script is loading, wait for it
+      const interval = setInterval(() => {
+        if (window.google) {
+          clearInterval(interval);
+          initMap();
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+    // Inject script with callback
+    (window as any).__initGoogleMap = () => initMap();
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=__initGoogleMap`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+    return () => {};
+  }, []);
 
   const countSignalsAndTolls = (steps: google.maps.DirectionsStep[]) => {
     let signals = 0;
