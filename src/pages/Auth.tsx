@@ -34,8 +34,7 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ email: "", password: "", fullName: "" });
 
-  const VERCEL_ORIGIN = "https://genai-yolo.vercel.app";
-  const OAUTH_REDIRECT_URI = import.meta.env.VITE_OAUTH_REDIRECT_URL?.trim() || VERCEL_ORIGIN;
+  const OAUTH_REDIRECT_URI = window.location.origin;
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setOauthLoading(provider);
