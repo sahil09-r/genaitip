@@ -87,7 +87,7 @@ const Auth = () => {
           password: form.password,
           options: {
             data: { full_name: form.fullName },
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: OAUTH_REDIRECT_URI,
           },
         });
 
