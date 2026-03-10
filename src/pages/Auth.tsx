@@ -99,7 +99,7 @@ const Auth = () => {
           password: form.password,
           options: {
             data: { full_name: form.fullName },
-            emailRedirectTo: OAUTH_REDIRECT_URI,
+            emailRedirectTo: window.location.origin,
           },
         });
 
