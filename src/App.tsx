@@ -30,6 +30,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <SpeedInsights />
         <Toaster />
         <Sonner />
         <BrowserRouter>
