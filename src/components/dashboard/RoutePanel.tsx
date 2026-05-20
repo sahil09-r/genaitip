@@ -22,6 +22,7 @@ const getGoogleMapsScriptUrl = () => {
     key: GOOGLE_MAPS_API_KEY || "",
     loading: "async",
     callback: "__initGoogleMap",
+    libraries: "geometry",
   });
 
   if (GOOGLE_MAPS_CHANNEL) {
