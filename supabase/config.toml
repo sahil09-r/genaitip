@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.detect-frame]
 verify_jwt = false
+
+[functions.compute-route]
+verify_jwt = false
