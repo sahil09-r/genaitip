@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useDashboard } from "@/contexts/DashboardContext";
 
+const ROUTE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compute-route`;
+
 declare global {
   interface Window {
     google: typeof google;
@@ -38,6 +40,8 @@ const RoutePanel = () => {
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const altRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const routePolylineRef = useRef<google.maps.Polyline | null>(null);
+  const altPolylineRef = useRef<google.maps.Polyline | null>(null);
   const { setRouteData, addNotification } = useDashboard();
 
   const initMap = () => {
