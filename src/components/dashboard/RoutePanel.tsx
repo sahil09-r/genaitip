@@ -8,11 +8,26 @@ import { useDashboard } from "@/contexts/DashboardContext";
 declare global {
   interface Window {
     google: typeof google;
+    __initGoogleMap?: () => void;
   }
 }
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
 const GOOGLE_MAPS_CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID;
+
+const getGoogleMapsScriptUrl = () => {
+  const params = new URLSearchParams({
+    key: GOOGLE_MAPS_API_KEY || "",
+    loading: "async",
+    callback: "__initGoogleMap",
+  });
+
+  if (GOOGLE_MAPS_CHANNEL) {
+    params.set("channel", GOOGLE_MAPS_CHANNEL);
+  }
+
+  return `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+};
 
 const RoutePanel = () => {
   const [origin, setOrigin] = useState("");
@@ -56,6 +71,23 @@ const RoutePanel = () => {
   };
 
   useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      setError("Google Maps connection is not configured.");
+      return;
+    }
+
+    const expectedScriptUrl = getGoogleMapsScriptUrl();
+    const existingScript = document.getElementById("google-maps-script") as HTMLScriptElement | null;
+
+    if (existingScript && existingScript.src !== expectedScriptUrl) {
+      existingScript.remove();
+      document.querySelectorAll('script[src*="maps.googleapis.com/maps-api-v3"]').forEach((script) => script.remove());
+      delete (window as any).google;
+      mapInstanceRef.current = null;
+      directionsRendererRef.current = null;
+      altRendererRef.current = null;
+    }
+
     // If Google Maps is already loaded, init immediately
     if (window.google && mapRef.current) {
       initMap();
@@ -73,10 +105,10 @@ const RoutePanel = () => {
       return () => clearInterval(interval);
     }
     // Inject script with callback
-    (window as any).__initGoogleMap = () => initMap();
+    window.__initGoogleMap = () => initMap();
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=__initGoogleMap${GOOGLE_MAPS_CHANNEL ? `&channel=${GOOGLE_MAPS_CHANNEL}` : ""}`;
+    script.src = expectedScriptUrl;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
