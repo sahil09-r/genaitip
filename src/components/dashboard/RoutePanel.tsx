@@ -11,7 +11,8 @@ declare global {
   }
 }
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyAZcUF_UZcDJvBV_pE5DfgdaK5x38al32o";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
+const GOOGLE_MAPS_CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID;
 
 const RoutePanel = () => {
   const [origin, setOrigin] = useState("");
@@ -75,7 +76,7 @@ const RoutePanel = () => {
     (window as any).__initGoogleMap = () => initMap();
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=__initGoogleMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=__initGoogleMap${GOOGLE_MAPS_CHANNEL ? `&channel=${GOOGLE_MAPS_CHANNEL}` : ""}`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
