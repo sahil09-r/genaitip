@@ -90,7 +90,13 @@ serve(async (req) => {
     const data = await response.json();
     if (!response.ok) {
       console.error("Google Routes API error:", response.status, JSON.stringify(data));
-      return new Response(JSON.stringify({ error: "Google route service is unavailable.", details: data }), {
+      const permissionDenied = response.status === 403 || data?.error?.status === "PERMISSION_DENIED";
+      return new Response(JSON.stringify({
+        error: permissionDenied
+          ? "Google Routes API is not enabled or allowed for this key. Enable Routes API on the same Google Cloud project as this Maps key."
+          : "Google route service is unavailable.",
+        details: data,
+      }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
