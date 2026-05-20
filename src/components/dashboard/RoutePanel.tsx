@@ -76,7 +76,7 @@ const RoutePanel = () => {
     (window as any).__initGoogleMap = () => initMap();
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=__initGoogleMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&callback=__initGoogleMap${GOOGLE_MAPS_CHANNEL ? `&channel=${GOOGLE_MAPS_CHANNEL}` : ""}`;
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
