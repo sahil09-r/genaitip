@@ -8,7 +8,8 @@ export interface RouteData {
   signalCount: number;
   tollCount: number;
   steps: { instruction: string; distance: string; duration: string }[];
-  altRoutes: { duration: string; distance: string; timeSaved: string }[];
+  polyline?: string;
+  altRoutes: { duration: string; distance: string; timeSaved: string; polyline?: string }[];
 }
 
 export interface Detection {
