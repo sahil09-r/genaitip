@@ -74,6 +74,38 @@ const RoutePanel = () => {
     });
   };
 
+  const drawEncodedRoute = (polyline: string, altPolyline?: string) => {
+    if (!mapInstanceRef.current || !window.google?.maps?.geometry?.encoding || !polyline) return;
+
+    routePolylineRef.current?.setMap(null);
+    altPolylineRef.current?.setMap(null);
+
+    if (altPolyline) {
+      altPolylineRef.current = new google.maps.Polyline({
+        path: google.maps.geometry.encoding.decodePath(altPolyline),
+        geodesic: true,
+        strokeColor: "#6b7280",
+        strokeOpacity: 0.5,
+        strokeWeight: 3,
+        map: mapInstanceRef.current,
+      });
+    }
+
+    const path = google.maps.geometry.encoding.decodePath(polyline);
+    routePolylineRef.current = new google.maps.Polyline({
+      path,
+      geodesic: true,
+      strokeColor: "#00c9db",
+      strokeOpacity: 1,
+      strokeWeight: 5,
+      map: mapInstanceRef.current,
+    });
+
+    const bounds = new google.maps.LatLngBounds();
+    path.forEach((point) => bounds.extend(point));
+    mapInstanceRef.current.fitBounds(bounds);
+  };
+
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) {
       setError("Google Maps connection is not configured.");
@@ -165,77 +197,39 @@ const RoutePanel = () => {
     setLoading(true);
     setError(null);
 
-    const directionsService = new google.maps.DirectionsService();
     try {
-      const result = await directionsService.route({
-        origin,
-        destination,
-        travelMode: google.maps.TravelMode.DRIVING,
-        provideRouteAlternatives: true,
-        avoidTolls: false,
+      const response = await fetch(ROUTE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ origin, destination }),
       });
 
-      if (result.routes.length > 0) {
-        directionsRendererRef.current?.setDirections(result);
+      const routeData = await response.json();
+      if (!response.ok) throw new Error(routeData.error || "Could not find route. Check your addresses.");
 
-        // Show alternative route if available
-        if (result.routes.length > 1 && altRendererRef.current) {
-          const altResult = { ...result, routes: [result.routes[1]] };
-          altRendererRef.current.setDirections(altResult as google.maps.DirectionsResult);
-          altRendererRef.current.setRouteIndex(0);
-        }
+      drawEncodedRoute(routeData.polyline, routeData.altRoutes?.[0]?.polyline);
+      setRouteData(routeData);
 
-        const leg = result.routes[0].legs[0];
-        const { signals, tolls } = countSignalsAndTolls(leg.steps);
-        const primaryDuration = parseDurationSeconds(leg.duration?.text || "");
-
-        // Build alternative routes info
-        const altRoutes = result.routes.slice(1).map((route) => {
-          const altLeg = route.legs[0];
-          const altDuration = parseDurationSeconds(altLeg.duration?.text || "");
-          const timeDiff = primaryDuration - altDuration;
-          return {
-            duration: altLeg.duration?.text || "",
-            distance: altLeg.distance?.text || "",
-            timeSaved: timeDiff > 0 ? formatTimeSaved(timeDiff) : `+${formatTimeSaved(Math.abs(timeDiff))}`,
-          };
-        });
-
-        const routeData = {
-          origin: leg.start_address,
-          destination: leg.end_address,
-          duration: leg.duration?.text || "",
-          distance: leg.distance?.text || "",
-          signalCount: signals,
-          tollCount: tolls,
-          steps: leg.steps.map((s) => ({
-            instruction: s.instructions.replace(/<[^>]*>/g, ""),
-            distance: s.distance?.text || "",
-            duration: s.duration?.text || "",
-          })),
-          altRoutes,
-        };
-
-        setRouteData(routeData);
-
-        // Add real notifications
+      addNotification({
+        text: `Route calculated: ${routeData.origin.split(",")[0]} → ${routeData.destination.split(",")[0]}`,
+        type: "info",
+      });
+      addNotification({
+        text: `${routeData.signalCount} traffic signals and ${routeData.tollCount} toll plaza${routeData.tollCount !== 1 ? "s" : ""} on route`,
+        type: "warning",
+      });
+      if (routeData.altRoutes?.length > 0) {
         addNotification({
-          text: `Route calculated: ${leg.start_address.split(",")[0]} → ${leg.end_address.split(",")[0]}`,
+          text: `Alternative route available — ${routeData.altRoutes[0].duration} (${routeData.altRoutes[0].timeSaved} difference)`,
           type: "info",
         });
-        addNotification({
-          text: `${signals} traffic signals and ${tolls} toll plaza${tolls !== 1 ? "s" : ""} on route`,
-          type: "warning",
-        });
-        if (altRoutes.length > 0) {
-          addNotification({
-            text: `Alternative route available — ${altRoutes[0].duration} (${altRoutes[0].timeSaved} difference)`,
-            type: "info",
-          });
-        }
       }
     } catch (err: any) {
-      setError("Could not find route. Check your addresses.");
+      setError(err.message || "Could not find route. Check your addresses.");
     } finally {
       setLoading(false);
     }
